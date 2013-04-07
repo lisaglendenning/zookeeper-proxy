@@ -5,8 +5,8 @@ import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.ServiceMain;
 import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
+import org.apache.zookeeper.client.ClientConnectionFactory;
 import org.apache.zookeeper.client.ClientSessionConnection;
-import org.apache.zookeeper.client.ClientSessionConnectionService;
 import org.apache.zookeeper.client.SingleClientConnectionFactory;
 import org.apache.zookeeper.protocol.client.PingSessionsTask;
 import org.apache.zookeeper.server.ConnectionManager;
@@ -49,9 +49,9 @@ public class ProxyMain extends ServiceMain {
         
         // client
         bind(Xid.class).in(Singleton.class);
-        bind(SingleClientConnectionFactory.class).asEagerSingleton();
+        bind(ClientConnectionFactory.class).asEagerSingleton();
         bind(ClientSessionConnection.ConnectionFactory.class).in(Singleton.class);
-        bind(Connection.class).toProvider(SingleClientConnectionFactory.class);
+        bind(Connection.class).toProvider(ClientConnectionFactory.class);
         bind(ClientSessionConnection.class).toProvider(ClientSessionConnection.ConnectionFactory.class);
         bind(PingSessionsTask.class).asEagerSingleton();
     }
