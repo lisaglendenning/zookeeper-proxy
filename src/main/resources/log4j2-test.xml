@@ -1,0 +1,17 @@
+<configuration status="error">
+  <appenders>
+    <Console name="STDERR" target="SYSTEM_ERR">
+      <PatternLayout pattern="%-5r %5p [%t] (%C{1}:%L) - %m%n"/>
+    </Console>
+    <Console name="STDOUT" target="SYSTEM_OUT">
+      <PatternLayout pattern="%-5r %5p [%t] (%C{1}:%L) - %m%n"/>
+    </Console>
+  </appenders>
+  <loggers>
+    <logger name="org.apache.zookeeper" level="trace">
+    </logger>
+  	<root level="error">
+      <appender-ref ref="STDOUT"/>
+    </root>
+  </loggers>
+</configuration>
