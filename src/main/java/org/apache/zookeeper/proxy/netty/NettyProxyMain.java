@@ -29,21 +29,23 @@ public class NettyProxyMain extends ProxyMain {
         return new NettyProxyMain();
     }
 
-    protected NettyProxyMain() {}
-    
+    protected NettyProxyMain() {
+    }
+
     @Override
     protected void configure() {
         super.configure();
-        
+
         // server
         bind(ServerConnection.Factory.class).in(Singleton.class);
-        bind(ConfigurableChannelServerConnectionGroup.class).in(Singleton.class);
-        
+        bind(ConfigurableChannelServerConnectionGroup.class)
+                .in(Singleton.class);
+
         // client
         bind(ClientConnection.Factory.class).in(Singleton.class);
         bind(ChannelClientConnectionGroup.class).in(Singleton.class);
     }
-    
+
     @Override
     protected List<Module> modules() {
         List<Module> modules = super.modules();
@@ -51,14 +53,19 @@ public class NettyProxyMain extends ProxyMain {
         return modules;
     }
 
-    @Provides @Singleton
-    protected ServerConnectionGroup getServerConnectionGroup(ConfigurableChannelServerConnectionGroup group, ServiceMonitor monitor) {
+    @Provides
+    @Singleton
+    protected ServerConnectionGroup getServerConnectionGroup(
+            ConfigurableChannelServerConnectionGroup group,
+            ServiceMonitor monitor) {
         monitor.add(group);
         return group;
     }
 
-    @Provides @Singleton
-    protected ClientConnectionGroup getClientConnectionGroup(ChannelClientConnectionGroup group, ServiceMonitor monitor) {
+    @Provides
+    @Singleton
+    protected ClientConnectionGroup getClientConnectionGroup(
+            ChannelClientConnectionGroup group, ServiceMonitor monitor) {
         monitor.add(group);
         return group;
     }

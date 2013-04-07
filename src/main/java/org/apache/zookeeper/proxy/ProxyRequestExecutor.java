@@ -35,155 +35,165 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
 
     public static class Factory extends SessionRequestExecutor.Factory {
 
-    	public static Factory create(
-    			Provider<Eventful> eventfulFactory,
-    			ExecutorService executor,
-    			SessionManager sessions,
-    			Zxid zxid,
-    			Provider<ClientSessionConnection> clientFactory) {
-    		return new Factory(eventfulFactory, executor, sessions, zxid, clientFactory);
-    	}
+        public static Factory create(Provider<Eventful> eventfulFactory,
+                ExecutorService executor, SessionManager sessions, Zxid zxid,
+                Provider<ClientSessionConnection> clientFactory) {
+            return new Factory(eventfulFactory, executor, sessions, zxid,
+                    clientFactory);
+        }
 
         protected final Provider<ClientSessionConnection> clientFactory;
-        
-    	@Inject
-		protected Factory(
-		        Provider<Eventful> eventfulFactory,
-                ExecutorService executor, 
-                SessionManager sessions, 
-                Zxid zxid,
+
+        @Inject
+        protected Factory(Provider<Eventful> eventfulFactory,
+                ExecutorService executor, SessionManager sessions, Zxid zxid,
                 Provider<ClientSessionConnection> clientFactory) {
-	        super(eventfulFactory, executor, sessions, zxid);
-	        this.clientFactory = clientFactory;
+            super(eventfulFactory, executor, sessions, zxid);
+            this.clientFactory = clientFactory;
         }
 
-		@Override
-	    protected RequestExecutorService newExecutor(long sessionId) {
-            SessionConnectionState state = SessionConnectionState.create(eventfulFactory.get(), State.CONNECTED);
+        @Override
+        protected RequestExecutorService newExecutor(long sessionId) {
+            SessionConnectionState state = SessionConnectionState.create(
+                    eventfulFactory.get(), State.CONNECTED);
             Session session = sessions().get(sessionId);
-            return ProxyRequestExecutor.create(
-                    eventfulFactory, 
-                    executor(),
-                    session,
-                    state,
-                    getResponseProcessor(getSessionProcessor(sessionId, state)),
-                    getProxyProcessor(),
-                    clientFactory.get());
-	    }
+            return ProxyRequestExecutor
+                    .create(eventfulFactory,
+                            executor(),
+                            session,
+                            state,
+                            getResponseProcessor(getSessionProcessor(sessionId,
+                                    state)), getProxyProcessor(), clientFactory
+                                    .get());
+        }
 
         protected Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> getProxyProcessor() {
-            Processor<Operation.Response, Operation.Response> responseProcessor = 
-                    OptionalProcessor.create(AssignZxidProcessor.create(zxid));
-            Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> processor = 
-                    ProxyResultProcessor.create(responseProcessor);
-            return processor;        
+            Processor<Operation.Response, Operation.Response> responseProcessor = OptionalProcessor
+                    .create(AssignZxidProcessor.create(zxid));
+            Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> processor = ProxyResultProcessor
+                    .create(responseProcessor);
+            return processor;
         }
     }
-    
-    public static class ProxyResultProcessor implements Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> {
 
-        public static ProxyResultProcessor create(Processor<Operation.Response, Operation.Response> processor) {
+    public static class ProxyResultProcessor
+            implements
+            Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> {
+
+        public static ProxyResultProcessor create(
+                Processor<Operation.Response, Operation.Response> processor) {
             return new ProxyResultProcessor(processor);
         }
-        
+
         protected Processor<Operation.Response, Operation.Response> processor;
-        
-        public ProxyResultProcessor(Processor<Operation.Response, Operation.Response> processor) {
+
+        public ProxyResultProcessor(
+                Processor<Operation.Response, Operation.Response> processor) {
             this.processor = processor;
         }
-        
+
         @Override
-        public Operation.Result apply(Pair<Operation.Request, Operation.Result> input) throws Exception {
+        public Operation.Result apply(
+                Pair<Operation.Request, Operation.Result> input)
+                throws Exception {
 
             // unwrap backend response
             Operation.Result remoteResult = input.second();
             Operation.Response remoteResponse = remoteResult.response();
             if (remoteResponse instanceof Operation.CallResponse) {
-                remoteResponse = ((Operation.CallResponse)remoteResponse).response();
+                remoteResponse = ((Operation.CallResponse) remoteResponse)
+                        .response();
             }
-            
+
             // and wrap it back up
             Operation.Request localRequest = input.first();
             Operation.Response localResponse = processor.apply(remoteResponse);
-            Operation.Result localResult = OpResult.create(localRequest, localResponse);
+            Operation.Result localResult = OpResult.create(localRequest,
+                    localResponse);
             return localResult;
         }
     }
 
-	public static enum ProxyRequestTaskState implements AutomataState<ProxyRequestTaskState> {
+    public static enum ProxyRequestTaskState implements
+            AutomataState<ProxyRequestTaskState> {
         INITIALIZING, EXECUTING, COMPLETED;
 
-		@Override
+        @Override
         public boolean isTerminal() {
-	        switch (this) {
-	        case COMPLETED:
-	        	return true;
-        	default:
-        		return false;
-	        }
+            switch (this) {
+            case COMPLETED:
+                return true;
+            default:
+                return false;
+            }
         }
 
-		@Override
+        @Override
         public boolean validTransition(ProxyRequestTaskState nextState) {
-			if (this == nextState) {
-				return true;
-			}
-	        switch (this) {
-	        case INITIALIZING:
-	        	return (nextState == EXECUTING);
-	        case EXECUTING:
-	        	return (nextState == COMPLETED);
-        	default:
-        		return false;
-	        }
+            if (this == nextState) {
+                return true;
+            }
+            switch (this) {
+            case INITIALIZING:
+                return (nextState == EXECUTING);
+            case EXECUTING:
+                return (nextState == COMPLETED);
+            default:
+                return false;
+            }
         }
-	}
-	
-	protected class ProxyRequestTask extends SettableTask<Operation.Request, Operation.Result> implements Callable<ListenableFuture<Operation.Result>>, FutureCallback<Operation.Result> {
-		
-		protected ProxyRequestTaskState.Reference<ProxyRequestTaskState> state;
-		
-		public ProxyRequestTask(Operation.Request task) {
-		    super(task);
-		    this.state = ProxyRequestTaskState.Reference.create(ProxyRequestTaskState.INITIALIZING);
-	    }
-	
-		public ListenableFuture<Operation.Result> call() {
-		    SettableFuture<Operation.Result> future = future();
-		    if (state.compareAndSet(ProxyRequestTaskState.INITIALIZING, ProxyRequestTaskState.EXECUTING)) {
-		        Operation.Request request = task();
-		        switch (request.operation()) {
-		        case PING:
-		        {
-		            return ProxyRequestExecutor.super.apply(this);
-		        }
-		        case CLOSE_SESSION:
-		        {
+    }
+
+    protected class ProxyRequestTask extends
+            SettableTask<Operation.Request, Operation.Result> implements
+            Callable<ListenableFuture<Operation.Result>>,
+            FutureCallback<Operation.Result> {
+
+        protected ProxyRequestTaskState.Reference<ProxyRequestTaskState> state;
+
+        public ProxyRequestTask(Operation.Request task) {
+            super(task);
+            this.state = ProxyRequestTaskState.Reference
+                    .create(ProxyRequestTaskState.INITIALIZING);
+        }
+
+        public ListenableFuture<Operation.Result> call() {
+            SettableFuture<Operation.Result> future = future();
+            if (state.compareAndSet(ProxyRequestTaskState.INITIALIZING,
+                    ProxyRequestTaskState.EXECUTING)) {
+                Operation.Request request = task();
+                switch (request.operation()) {
+                case PING: {
+                    return ProxyRequestExecutor.super.apply(this);
+                }
+                case CLOSE_SESSION: {
                     Futures.addCallback(client.disconnect(), this);
                     break;
-		        }
-	            default:
-	            {
-	                Futures.addCallback(client.submit(Operations.Requests.unwrap(request)), 
-	                        this);
-	                break;
-		        }
-		        }
-		    }
-			return future;
-		}
+                }
+                default: {
+                    Futures.addCallback(
+                            client.submit(Operations.Requests.unwrap(request)),
+                            this);
+                    break;
+                }
+                }
+            }
+            return future;
+        }
 
         @Override
         public void onSuccess(Operation.Result result) {
-            state.compareAndSet(ProxyRequestTaskState.EXECUTING, ProxyRequestTaskState.COMPLETED);
-            
-            if ((result.operation() ==  Operation.CLOSE_SESSION)
-                    && ! (result instanceof Operation.Error)) {
+            state.compareAndSet(ProxyRequestTaskState.EXECUTING,
+                    ProxyRequestTaskState.COMPLETED);
+
+            if ((result.operation() == Operation.CLOSE_SESSION)
+                    && !(result instanceof Operation.Error)) {
                 ProxyRequestExecutor.super.apply(this);
             } else {
                 SettableFuture<Operation.Result> future = future();
                 try {
-                    Operation.Result localResult = proxyProcessor().apply(Pair.create(task(), result));
+                    Operation.Result localResult = proxyProcessor().apply(
+                            Pair.create(task(), result));
                     future.set(localResult);
                 } catch (Exception e) {
                     onFailure(e);
@@ -194,13 +204,14 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
 
         @Override
         public void onFailure(Throwable t) {
-            state.compareAndSet(ProxyRequestTaskState.EXECUTING, ProxyRequestTaskState.COMPLETED);
+            state.compareAndSet(ProxyRequestTaskState.EXECUTING,
+                    ProxyRequestTaskState.COMPLETED);
             SettableFuture<Operation.Result> future = future();
             future.setException(t);
             schedule();
         }
-	}
-	
+    }
+
     public static ProxyRequestExecutor create(
             Provider<Eventful> eventfulFactory,
             ExecutorService executor,
@@ -209,21 +220,15 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
             Processor<Operation.Request, Operation.Result> processor,
             Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> proxyProcessor,
             ClientSessionConnection client) {
-        return new ProxyRequestExecutor(
-                eventfulFactory,
-                executor,
-                session,
-                state,
-                processor,
-                proxyProcessor,
-                client);
+        return new ProxyRequestExecutor(eventfulFactory, executor, session,
+                state, processor, proxyProcessor, client);
     }
-    
+
     protected final Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> proxyProcessor;
     protected ClientSessionConnection client;
-    
+
     @Inject
-	protected ProxyRequestExecutor(
+    protected ProxyRequestExecutor(
             Provider<Eventful> eventfulFactory,
             ExecutorService executor,
             Session session,
@@ -231,19 +236,19 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
             Processor<Operation.Request, Operation.Result> processor,
             Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> proxyProcessor,
             ClientSessionConnection client) {
-	    super(eventfulFactory, executor, session, state, processor);
-	    this.proxyProcessor = proxyProcessor;
-	    this.client = client;
+        super(eventfulFactory, executor, session, state, processor);
+        this.proxyProcessor = proxyProcessor;
+        this.client = client;
         client.register(this);
         if (client.state() == SessionConnection.State.ANONYMOUS) {
             client.connect();
         }
     }
-    
+
     protected Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> proxyProcessor() {
         return proxyProcessor;
     }
-    
+
     @Subscribe
     public void handleSessionConnectStateEvent(SessionConnectionStateEvent event) {
         switch (event.event()) {
@@ -254,16 +259,19 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
             break;
         }
     }
-	@Override
-    protected ListenableFuture<Operation.Result> apply(SettableTask<Operation.Request, Operation.Result> task) {
+
+    @Override
+    protected ListenableFuture<Operation.Result> apply(
+            SettableTask<Operation.Request, Operation.Result> task) {
         ListenableFuture<Operation.Result> future = null;
-	    ProxyRequestTask proxyTask = (ProxyRequestTask) task;
+        ProxyRequestTask proxyTask = (ProxyRequestTask) task;
         future = proxyTask.call();
         return future;
-	}
-	
-	@Override
-    protected SettableTask<Operation.Request, Operation.Result> newTask(Operation.Request request) {
-    	return new ProxyRequestTask(request);
+    }
+
+    @Override
+    protected SettableTask<Operation.Request, Operation.Result> newTask(
+            Operation.Request request) {
+        return new ProxyRequestTask(request);
     }
 }

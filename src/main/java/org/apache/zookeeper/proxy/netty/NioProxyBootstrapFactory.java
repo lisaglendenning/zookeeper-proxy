@@ -8,23 +8,23 @@ import org.apache.zookeeper.netty.server.NioServerBootstrapFactory;
 import com.google.inject.Provides;
 
 public class NioProxyBootstrapFactory extends NioServerBootstrapFactory {
-    
+
     public static NioProxyBootstrapFactory get() {
         return new NioProxyBootstrapFactory();
     }
-    
-    protected NioProxyBootstrapFactory() {}
-    
+
+    protected NioProxyBootstrapFactory() {
+    }
+
     @Override
     protected void configure() {
         super.configure();
     }
 
     @Provides
-    public Bootstrap getBootstrap(
-            Class<? extends Channel> channelType,
+    public Bootstrap getBootstrap(Class<? extends Channel> channelType,
             EventLoopGroup group) {
         return newBootstrap(channelType, group);
     }
-    
+
 }
