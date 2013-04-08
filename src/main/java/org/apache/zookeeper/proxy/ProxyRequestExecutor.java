@@ -14,7 +14,6 @@ import org.apache.zookeeper.client.ClientSessionConnection;
 import org.apache.zookeeper.data.OpResult;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
-import org.apache.zookeeper.event.SessionConnectionStateEvent;
 import org.apache.zookeeper.server.AssignZxidProcessor;
 import org.apache.zookeeper.server.SessionManager;
 import org.apache.zookeeper.server.SessionRequestExecutor;
@@ -26,7 +25,6 @@ import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.util.SettableTask;
 
 import com.google.common.base.Objects;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -272,19 +270,7 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
         return proxyProcessor;
     }
 
-    @Subscribe
-    public void handleSessionConnectStateEvent(SessionConnectionStateEvent event) {
-        switch (event.event()) {
-        case DISCONNECTED:
-            schedule();
-            break;
-        default:
-            break;
-        }
-    }
-
     @Override
-
     public ListenableFuture<Operation.Result> call() throws Exception {
         scheduled.compareAndSet(true, false);
 
