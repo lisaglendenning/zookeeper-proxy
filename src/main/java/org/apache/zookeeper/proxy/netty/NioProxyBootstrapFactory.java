@@ -16,15 +16,9 @@ public class NioProxyBootstrapFactory extends NioServerBootstrapFactory {
     protected NioProxyBootstrapFactory() {
     }
 
-    @Override
-    protected void configure() {
-        super.configure();
-    }
-
     @Provides
     public Bootstrap getBootstrap(Class<? extends Channel> channelType,
             EventLoopGroup group) {
         return newBootstrap(channelType, group);
     }
-
 }
