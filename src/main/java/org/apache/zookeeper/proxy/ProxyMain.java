@@ -7,7 +7,6 @@ import org.apache.zookeeper.Xid;
 import org.apache.zookeeper.Zxid;
 import org.apache.zookeeper.client.ClientConnectionFactory;
 import org.apache.zookeeper.client.ClientSessionConnection;
-import org.apache.zookeeper.client.SingleClientConnectionFactory;
 import org.apache.zookeeper.protocol.client.PingSessionsTask;
 import org.apache.zookeeper.server.ConnectionManager;
 import org.apache.zookeeper.server.DefaultSessionParametersPolicy;

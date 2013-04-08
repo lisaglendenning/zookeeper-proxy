@@ -1,8 +1,10 @@
 package org.apache.zookeeper.proxy;
 
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+
 import org.apache.zookeeper.RequestExecutorService;
 import org.apache.zookeeper.Session;
 import org.apache.zookeeper.SessionConnection;
@@ -23,6 +25,7 @@ import org.apache.zookeeper.util.Pair;
 import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.util.SettableTask;
 
+import com.google.common.base.Objects;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -156,6 +159,10 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
             this.state = ProxyRequestTaskState.Reference
                     .create(ProxyRequestTaskState.INITIALIZING);
         }
+        
+        public ProxyRequestTaskState state() {
+            return state.get();
+        }
 
         public ListenableFuture<Operation.Result> call() {
             SettableFuture<Operation.Result> future = future();
@@ -164,7 +171,7 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
                 Operation.Request request = task();
                 switch (request.operation()) {
                 case PING: {
-                    return ProxyRequestExecutor.super.apply(this);
+                    return apply(this);
                 }
                 case CLOSE_SESSION: {
                     Futures.addCallback(client.disconnect(), this);
@@ -183,12 +190,13 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
 
         @Override
         public void onSuccess(Operation.Result result) {
+            logger.debug("Success {}", result);
             state.compareAndSet(ProxyRequestTaskState.EXECUTING,
                     ProxyRequestTaskState.COMPLETED);
 
             if ((result.operation() == Operation.CLOSE_SESSION)
                     && !(result instanceof Operation.Error)) {
-                ProxyRequestExecutor.super.apply(this);
+                apply(this);
             } else {
                 SettableFuture<Operation.Result> future = future();
                 try {
@@ -204,11 +212,24 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
 
         @Override
         public void onFailure(Throwable t) {
+            logger.debug("Failure {}", t);
             state.compareAndSet(ProxyRequestTaskState.EXECUTING,
                     ProxyRequestTaskState.COMPLETED);
             SettableFuture<Operation.Result> future = future();
             future.setException(t);
             schedule();
+        }
+
+        @Override
+        public String toString() {
+            String futureString = Objects.toStringHelper(future())
+                    .add("isDone", future().isDone())
+                    .toString();
+            return Objects.toStringHelper(this)
+                    .add("task", task())
+                    .add("future", futureString)
+                    .add("state", state())
+                    .toString();
         }
     }
 
@@ -224,6 +245,7 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
                 state, processor, proxyProcessor, client);
     }
 
+    protected final BlockingQueue<ProxyRequestTask> pendingRequests;
     protected final Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> proxyProcessor;
     protected ClientSessionConnection client;
 
@@ -237,6 +259,7 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
             Processor<Pair<Operation.Request, Operation.Result>, Operation.Result> proxyProcessor,
             ClientSessionConnection client) {
         super(eventfulFactory, executor, session, state, processor);
+        this.pendingRequests = new LinkedBlockingQueue<ProxyRequestTask>();
         this.proxyProcessor = proxyProcessor;
         this.client = client;
         client.register(this);
@@ -261,11 +284,34 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
     }
 
     @Override
-    protected ListenableFuture<Operation.Result> apply(
-            SettableTask<Operation.Request, Operation.Result> task) {
+
+    public ListenableFuture<Operation.Result> call() throws Exception {
+        scheduled.compareAndSet(true, false);
+
+        synchronized (this) {
+            ProxyRequestTask task = (ProxyRequestTask) requests.poll();
+            while (task != null) {
+                task.call();
+                pendingRequests.put(task);
+                task = (ProxyRequestTask) requests.poll();
+            }
+        }
+
         ListenableFuture<Operation.Result> future = null;
-        ProxyRequestTask proxyTask = (ProxyRequestTask) task;
-        future = proxyTask.call();
+        synchronized (this) {
+            ProxyRequestTask task = pendingRequests.peek();
+            if (task != null) {
+                future = task.future();
+                if (future.isDone()) {
+                    pendingRequests.take();
+                }
+            }
+        }
+        
+        if (!requests().isEmpty() || !pendingRequests.isEmpty()) {
+            schedule();
+        }
+
         return future;
     }
 
