@@ -14,6 +14,7 @@ import org.apache.zookeeper.client.ClientSessionConnection;
 import org.apache.zookeeper.data.OpResult;
 import org.apache.zookeeper.data.Operation;
 import org.apache.zookeeper.data.Operations;
+import org.apache.zookeeper.event.SessionResponseEvent;
 import org.apache.zookeeper.server.AssignZxidProcessor;
 import org.apache.zookeeper.server.SessionManager;
 import org.apache.zookeeper.server.SessionRequestExecutor;
@@ -25,6 +26,7 @@ import org.apache.zookeeper.util.Processor;
 import org.apache.zookeeper.util.SettableTask;
 
 import com.google.common.base.Objects;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -287,10 +289,10 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
         synchronized (this) {
             ProxyRequestTask task = pendingRequests.peek();
             if (task != null) {
-                future = task.future();
-                if (future.isDone()) {
+                if (task.future().isDone()) {
+                    future = task.future();
                     pendingRequests.take();
-                }
+                } 
             }
         }
         
@@ -299,6 +301,19 @@ public class ProxyRequestExecutor extends SessionRequestExecutor {
         }
 
         return future;
+    }
+    
+
+    @Subscribe
+    public void handleEvent(SessionResponseEvent event) {
+        Operation.Response response = event.event();
+        switch (response.operation()) {
+        case NOTIFICATION:
+            post(event);
+            break;
+        default:
+            break;
+        }
     }
 
     @Override
