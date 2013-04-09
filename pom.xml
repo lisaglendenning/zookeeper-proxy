@@ -20,6 +20,13 @@
 	        <target>1.6</target>
 	      </configuration>
 	    </plugin>
+	    <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>2.9</version>
+            <configuration>
+            </configuration>
+        </plugin>
 	  </plugins>
 	</build>
     <dependencies>
@@ -27,52 +34,6 @@
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper-lite</artifactId>
             <version>0.1.0-SNAPSHOT</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.zookeeper</groupId>
-            <artifactId>zookeeper</artifactId>
-            <version>3.4.5</version>
-            <scope>compile</scope>
-            <exclusions>
-              <exclusion> 
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-log4j12</artifactId>
-              </exclusion>
-              <exclusion> 
-                <groupId>log4j</groupId>
-                <artifactId>log4j</artifactId>
-              </exclusion>
-            </exclusions> 
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>LATEST</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <version>RELEASE</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <version>RELEASE</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>LATEST</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>LATEST</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -99,11 +60,5 @@
             <version>4.11</version>
             <scope>test</scope>
         </dependency>
-<!--        <dependency>
-		  <groupId>org.mockito</groupId>
-		  <artifactId>mockito-core</artifactId>  
-		  <version>1.9.5</version> 
-		  <scope>test</scope>
-        </dependency>  -->
     </dependencies>
 </project>

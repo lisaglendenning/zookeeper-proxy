@@ -3,7 +3,7 @@ Simple ZooKeeper server proxy based on [zookeeper-lite](http://github.com/lisagl
 ## Quickstart
 
 <pre>
-$ mvn exec:java -Dexec.mainClass="org.apache.zookeeper.proxy.netty.NettyProxyMain" -Dexec.args="--help" -Dexec.classpathScope=test
+$ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="org.apache.zookeeper.proxy.netty.NettyProxyMain" -Dexec.args="--help"
 Usage: org.apache.zookeeper.proxy.netty.NettyProxyMain [--address=ServerAddress] [--clientAddress=ClientAddress] [--clientPort=ClientPort] [--help] [--port=ServerPort] [--prefs-path=PATH] [--prefs-root=[user,system]]
 </pre>
 
@@ -11,7 +11,7 @@ Usage: org.apache.zookeeper.proxy.netty.NettyProxyMain [--address=ServerAddress]
 
 Both zookeeper-proxy and zookeeper-lite are Maven projects. Build zookeeper-lite first and install it into your local Maven repository.
 
-Both zookeeper-proxy and zookeeper-lite use SLF4J for logging. Apache Log4J is used as the SLF4J backend in test scope.
+Both zookeeper-proxy and zookeeper-lite use SLF4J for logging. Apache Log4J2 is used as the SLF4J backend in test scope.
 
 ## Running
 
