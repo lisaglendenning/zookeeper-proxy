@@ -8,7 +8,7 @@
 
 : ${JAVA=java}
 : ${JAVA_CLASSPATH="${ZOOKEEPER_PROXY_LIB}/*"}
-: ${JAVA_MAIN="org.apache.zookeeper.proxy.netty.NettyProxyMain"}
+: ${JAVA_MAIN="edu.uw.zookeeper.proxy.netty.NettyProxyMain"}
 : ${JAVA_MAIN_ARGS=""}
 
 if [ ! -z ${ZOOKEEPER_PROXY_LOG} ]

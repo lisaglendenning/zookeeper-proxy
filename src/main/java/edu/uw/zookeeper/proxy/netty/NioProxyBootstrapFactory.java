@@ -1,11 +1,12 @@
-package org.apache.zookeeper.proxy.netty;
+package edu.uw.zookeeper.proxy.netty;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
-import org.apache.zookeeper.netty.server.NioServerBootstrapFactory;
 
 import com.google.inject.Provides;
+
+import edu.uw.zookeeper.netty.server.NioServerBootstrapFactory;
 
 public class NioProxyBootstrapFactory extends NioServerBootstrapFactory {
 

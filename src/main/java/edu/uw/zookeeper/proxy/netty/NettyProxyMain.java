@@ -1,19 +1,20 @@
-package org.apache.zookeeper.proxy.netty;
+package edu.uw.zookeeper.proxy.netty;
 
 import java.util.List;
 
-import org.apache.zookeeper.client.ClientConnectionGroup;
-import org.apache.zookeeper.netty.client.ChannelClientConnectionGroup;
-import org.apache.zookeeper.netty.client.ClientConnection;
-import org.apache.zookeeper.netty.server.ConfigurableChannelServerConnectionGroup;
-import org.apache.zookeeper.netty.server.ServerConnection;
-import org.apache.zookeeper.proxy.ProxyMain;
-import org.apache.zookeeper.server.ServerConnectionGroup;
-import org.apache.zookeeper.util.ServiceMonitor;
 
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+
+import edu.uw.zookeeper.client.ClientConnectionGroup;
+import edu.uw.zookeeper.netty.client.ChannelClientConnectionGroup;
+import edu.uw.zookeeper.netty.client.ClientConnection;
+import edu.uw.zookeeper.netty.server.ConfigurableChannelServerConnectionGroup;
+import edu.uw.zookeeper.netty.server.ServerConnection;
+import edu.uw.zookeeper.proxy.ProxyMain;
+import edu.uw.zookeeper.server.ServerConnectionGroup;
+import edu.uw.zookeeper.util.ServiceMonitor;
 
 public class NettyProxyMain extends ProxyMain {
 

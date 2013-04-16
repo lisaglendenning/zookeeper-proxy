@@ -1,29 +1,10 @@
-package org.apache.zookeeper.proxy;
+package edu.uw.zookeeper.proxy;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.apache.zookeeper.RequestExecutorService;
-import org.apache.zookeeper.Session;
-import org.apache.zookeeper.SessionConnection;
-import org.apache.zookeeper.SessionConnectionState;
-import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.client.ClientSessionConnection;
-import org.apache.zookeeper.data.OpResult;
-import org.apache.zookeeper.data.Operation;
-import org.apache.zookeeper.data.Operations;
-import org.apache.zookeeper.event.SessionResponseEvent;
-import org.apache.zookeeper.server.AssignZxidProcessor;
-import org.apache.zookeeper.server.SessionManager;
-import org.apache.zookeeper.server.SessionRequestExecutor;
-import org.apache.zookeeper.util.AutomataState;
-import org.apache.zookeeper.util.Eventful;
-import org.apache.zookeeper.util.OptionalProcessor;
-import org.apache.zookeeper.util.Pair;
-import org.apache.zookeeper.util.Processor;
-import org.apache.zookeeper.util.SettableTask;
 
 import com.google.common.base.Objects;
 import com.google.common.eventbus.Subscribe;
@@ -33,6 +14,26 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+
+import edu.uw.zookeeper.RequestExecutorService;
+import edu.uw.zookeeper.Session;
+import edu.uw.zookeeper.SessionConnection;
+import edu.uw.zookeeper.SessionConnectionState;
+import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.client.ClientSessionConnection;
+import edu.uw.zookeeper.data.OpResult;
+import edu.uw.zookeeper.data.Operation;
+import edu.uw.zookeeper.data.Operations;
+import edu.uw.zookeeper.event.SessionResponseEvent;
+import edu.uw.zookeeper.server.AssignZxidProcessor;
+import edu.uw.zookeeper.server.SessionManager;
+import edu.uw.zookeeper.server.SessionRequestExecutor;
+import edu.uw.zookeeper.util.AutomataState;
+import edu.uw.zookeeper.util.Eventful;
+import edu.uw.zookeeper.util.OptionalProcessor;
+import edu.uw.zookeeper.util.Pair;
+import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.SettableTask;
 
 public class ProxyRequestExecutor extends SessionRequestExecutor {
 

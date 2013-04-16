@@ -1,24 +1,25 @@
-package org.apache.zookeeper.proxy;
+package edu.uw.zookeeper.proxy;
 
-import org.apache.zookeeper.Connection;
-import org.apache.zookeeper.RequestExecutorService;
-import org.apache.zookeeper.ServiceMain;
-import org.apache.zookeeper.Xid;
-import org.apache.zookeeper.Zxid;
-import org.apache.zookeeper.client.ClientConnectionFactory;
-import org.apache.zookeeper.client.ClientSessionConnection;
-import org.apache.zookeeper.protocol.client.PingSessionsTask;
-import org.apache.zookeeper.server.ConnectionManager;
-import org.apache.zookeeper.server.DefaultSessionParametersPolicy;
-import org.apache.zookeeper.server.ExpireSessionsTask;
-import org.apache.zookeeper.server.ExpiringSessionManager;
-import org.apache.zookeeper.server.SessionManager;
-import org.apache.zookeeper.server.SessionParametersPolicy;
-import org.apache.zookeeper.util.ServiceMonitor;
 
 import com.google.common.util.concurrent.Service;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+
+import edu.uw.zookeeper.Connection;
+import edu.uw.zookeeper.RequestExecutorService;
+import edu.uw.zookeeper.ServiceMain;
+import edu.uw.zookeeper.Xid;
+import edu.uw.zookeeper.Zxid;
+import edu.uw.zookeeper.client.ClientConnectionFactory;
+import edu.uw.zookeeper.client.ClientSessionConnection;
+import edu.uw.zookeeper.protocol.client.PingSessionsTask;
+import edu.uw.zookeeper.server.ConnectionManager;
+import edu.uw.zookeeper.server.DefaultSessionParametersPolicy;
+import edu.uw.zookeeper.server.ExpireSessionsTask;
+import edu.uw.zookeeper.server.ExpiringSessionManager;
+import edu.uw.zookeeper.server.SessionManager;
+import edu.uw.zookeeper.server.SessionParametersPolicy;
+import edu.uw.zookeeper.util.ServiceMonitor;
 
 public class ProxyMain extends ServiceMain {
 

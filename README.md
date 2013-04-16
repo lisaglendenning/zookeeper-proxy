@@ -3,8 +3,8 @@ Simple ZooKeeper server proxy based on [zookeeper-lite](http://github.com/lisagl
 ## Quickstart
 
 <pre>
-$ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="org.apache.zookeeper.proxy.netty.NettyProxyMain" -Dexec.args="--help"
-Usage: org.apache.zookeeper.proxy.netty.NettyProxyMain [--address=ServerAddress] [--clientAddress=ClientAddress] [--clientPort=ClientPort] [--help] [--port=ServerPort] [--prefs-path=PATH] [--prefs-root=[user,system]]
+$ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="edu.uw.zookeeper.proxy.netty.NettyProxyMain" -Dexec.args="--help"
+Usage: edu.uw.zookeeper.proxy.netty.NettyProxyMain [--address=ServerAddress] [--clientAddress=ClientAddress] [--clientPort=ClientPort] [--help] [--port=ServerPort]
 </pre>
 
 ## Building
