@@ -1,77 +1,74 @@
 package edu.uw.zookeeper.proxy;
 
 
-import com.google.common.util.concurrent.Service;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
+import java.net.SocketAddress;
 
-import edu.uw.zookeeper.Connection;
-import edu.uw.zookeeper.RequestExecutorService;
-import edu.uw.zookeeper.ServiceMain;
-import edu.uw.zookeeper.Xid;
-import edu.uw.zookeeper.Zxid;
-import edu.uw.zookeeper.client.ClientConnectionFactory;
-import edu.uw.zookeeper.client.ClientSessionConnection;
-import edu.uw.zookeeper.protocol.client.PingSessionsTask;
-import edu.uw.zookeeper.server.ConnectionManager;
+import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.EnsembleView;
+import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.client.EnsembleFactory;
+import edu.uw.zookeeper.client.ClientMain;
+import edu.uw.zookeeper.net.ClientConnectionFactory;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.ServerConnectionFactory;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
+import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.server.DefaultSessionParametersPolicy;
 import edu.uw.zookeeper.server.ExpireSessionsTask;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
-import edu.uw.zookeeper.server.SessionManager;
+import edu.uw.zookeeper.server.Server;
 import edu.uw.zookeeper.server.SessionParametersPolicy;
+import edu.uw.zookeeper.util.Application;
+import edu.uw.zookeeper.util.Configuration;
+import edu.uw.zookeeper.util.Factories;
+import edu.uw.zookeeper.util.Factory;
+import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.ServiceMonitor;
+import edu.uw.zookeeper.util.Singleton;
+import edu.uw.zookeeper.util.TimeValue;
 
-public class ProxyMain extends ServiceMain {
+public abstract class ProxyMain extends AbstractMain {
 
-    public static void main(String[] args) throws Exception {
-        ProxyMain main = get();
-        main.apply(args);
-    }
+    protected final Singleton<Application> application;
+    
+    protected ProxyMain(Configuration configuration) {
+        super(configuration);
+        this.application = Factories.lazyFrom(new Factory<Application>() {
+            @Override
+            public Application get() {
+                ServiceMonitor monitor = serviceMonitor();
+                MonitorServiceFactory monitorsFactory = monitors(monitor);
 
-    public static ProxyMain get() {
-        return new ProxyMain();
-    }
+                // Client
+                ClientConnectionFactory clientConnections = monitorsFactory.apply(clientConnectionFactory().get());
+                TimeValue timeOut = ClientMain.TimeoutFactory.newInstance().get(configuration());
+                EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
+                ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
+                        publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
+                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, ensemble, timeOut);
+                Factory<ClientProtocolConnection> clientFactory = ensembleFactory.get();
 
-    protected ProxyMain() {
+                // Server
+                ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(configuration());
+                ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory().get(address.get()));
+                SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
+                ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
+                ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
+                final ProxyServerExecutor serverExecutor = ProxyServerExecutor.newInstance(
+                        executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, clientFactory);
+                final Server server = Server.newInstance(publisherFactory(), serverConnections, serverExecutor);
+                
+                return ProxyMain.super.application();
+            }
+        });
     }
 
     @Override
-    protected void configure() {
-        super.configure();
-
-        // server
-        bind(Zxid.class).in(Singleton.class);
-        bind(ExpiringSessionManager.class).in(Singleton.class);
-        bind(ExpireSessionsTask.class).in(Singleton.class);
-        bind(SessionParametersPolicy.class).to(
-                DefaultSessionParametersPolicy.class);
-        bind(RequestExecutorService.Factory.class).to(
-                ProxyRequestExecutor.Factory.class).in(Singleton.class);
-        bind(ConnectionManager.class).asEagerSingleton();
-        // bind(ExpireSessionsTask.class).asEagerSingleton();
-
-        // client
-        bind(Xid.class).in(Singleton.class);
-        bind(ClientConnectionFactory.class).asEagerSingleton();
-        bind(ClientSessionConnection.ConnectionFactory.class).in(
-                Singleton.class);
-        bind(Connection.class).toProvider(ClientConnectionFactory.class);
-        bind(ClientSessionConnection.class).toProvider(
-                ClientSessionConnection.ConnectionFactory.class);
-        bind(PingSessionsTask.class).asEagerSingleton();
+    protected Application application() {
+        return application.get();
     }
+    
+    protected abstract Factory<? extends ClientConnectionFactory> clientConnectionFactory();
 
-    @Provides
-    @Singleton
-    public SessionManager getSessionManager(ExpiringSessionManager manager,
-            ExpireSessionsTask task, ServiceMonitor monitor) {
-        monitor.add(task);
-        return manager;
-    }
-
-    @Provides
-    @Singleton
-    public Service getService(ServiceMonitor monitor) {
-        return monitor;
-    }
+    protected abstract ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory> serverConnectionFactory();
 }

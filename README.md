@@ -3,8 +3,8 @@ Simple ZooKeeper server proxy based on [zookeeper-lite](http://github.com/lisagl
 ## Quickstart
 
 <pre>
-$ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="edu.uw.zookeeper.proxy.netty.NettyProxyMain" -Dexec.args="--help"
-Usage: edu.uw.zookeeper.proxy.netty.NettyProxyMain [--address=ServerAddress] [--clientAddress=ClientAddress] [--clientPort=ClientPort] [--help] [--port=ServerPort]
+$ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="edu.uw.zookeeper.proxy.netty.Main" -Dexec.args="--help"
+Usage: edu.uw.zookeeper.proxy.netty.Main [--ensemble=Ensemble] [--help] [--server=Address]
 </pre>
 
 ## Building
@@ -16,7 +16,7 @@ Both zookeeper-proxy and zookeeper-lite use SLF4J for logging. Apache Log4J2 is 
 ## Running
 
 1. First, start a vanilla ZooKeeper standalone server or ensemble.
-2. Then, start the ZooKeeper proxy. Specify the backend server network address with the ``--address=HOSTNAME`` and ``--port=PORT`` command line arguments. Specify the network address that clients will connect to with the ``--clientAddress`` and ``--clientPort`` command line arguments. The default client address is ``*/2181``.
+2. Then, start the ZooKeeper proxy. Specify the backend server network address with the ``--ensemble=HOSTNAME:PORT`` command line argument. Specify the network address that clients will connect to with the ``--server=:PORT`` command line argument. The default client address is ``*/2181``.
 3. Finally, connect to the proxy with your choice of ZooKeeper client.
 
 ## Overview
