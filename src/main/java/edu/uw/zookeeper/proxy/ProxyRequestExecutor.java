@@ -122,7 +122,20 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
                 try {
                     Operation.SessionReply reply = backendReply.get();
                     // Translate backend reply to proxy reply
-                    Operation.SessionReply result = replyProcessor.apply(Pair.create(Optional.of(task()), reply));
+                    Operation.SessionRequest request = task();
+                    Operation.SessionReply result;
+                    switch (request.request().opcode()) {
+                    case CLOSE_SESSION:
+                        if (reply.reply() instanceof Operation.Error) {
+                            result = replyProcessor.apply(Pair.create(Optional.of(task()), reply));
+                        } else {
+                            result = processor.apply(request);
+                        }
+                        break;
+                    default:
+                        result = replyProcessor.apply(Pair.create(Optional.of(task()), reply));
+                        break;
+                    }
                     future().set(result);
                 } catch (Exception e) {
                     future().setException(e);
