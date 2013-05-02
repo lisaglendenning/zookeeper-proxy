@@ -76,12 +76,10 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             Operation.SessionReply reply = input.second();
             
             int xid;
-            if (reply instanceof Operation.XidHeader) {
-                xid = ((Operation.XidHeader)reply).xid();
-            } else if (request.isPresent()){
+            if (request.isPresent()){
                 xid = request.get().xid();
             } else {
-                throw new IllegalArgumentException(input.toString());
+                xid = reply.xid();
             }
             
             Operation.Reply payload = reply.reply();
@@ -127,13 +125,13 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
                     switch (request.request().opcode()) {
                     case CLOSE_SESSION:
                         if (reply.reply() instanceof Operation.Error) {
-                            result = replyProcessor.apply(Pair.create(Optional.of(task()), reply));
+                            result = replyProcessor.apply(Pair.create(Optional.of(request), reply));
                         } else {
                             result = processor.apply(request);
                         }
                         break;
                     default:
-                        result = replyProcessor.apply(Pair.create(Optional.of(task()), reply));
+                        result = replyProcessor.apply(Pair.create(Optional.of(request), reply));
                         break;
                     }
                     future().set(result);
