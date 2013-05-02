@@ -40,7 +40,7 @@ public class Main extends ProxyMain {
                 NioEventLoopGroupFactory.getInstance(),
                 serviceMonitor()).get(threads);
 
-        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.ConnectionBuilder.newInstance(publisherFactory());
+        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(publisherFactory());
         
         // client
         Factory<Bootstrap> bootstrapFactory = NioClientBootstrapFactory.newInstance(groupFactory);        
