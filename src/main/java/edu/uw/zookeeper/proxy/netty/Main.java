@@ -37,7 +37,7 @@ public class Main extends ProxyMain {
         // shared eventloopgroup
         ThreadFactory threads = DaemonThreadFactory.getInstance().get(threadFactory().get());
         Singleton<? extends EventLoopGroup> groupFactory = MonitoredEventLoopGroupFactory.newInstance(
-                NioEventLoopGroupFactory.getInstance(),
+                NioEventLoopGroupFactory.DEFAULT,
                 serviceMonitor()).get(threads);
 
         ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(publisherFactory());
