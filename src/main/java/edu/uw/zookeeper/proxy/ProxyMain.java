@@ -6,13 +6,16 @@ import java.net.SocketAddress;
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.client.AssignXidProcessor;
+import edu.uw.zookeeper.client.ClientProtocolConnectionsService;
 import edu.uw.zookeeper.client.EnsembleFactory;
 import edu.uw.zookeeper.client.ClientMain;
+import edu.uw.zookeeper.client.SessionClient;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
+import edu.uw.zookeeper.server.AssignZxidProcessor;
 import edu.uw.zookeeper.server.DefaultSessionParametersPolicy;
 import edu.uw.zookeeper.server.ExpireSessionsTask;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
@@ -45,17 +48,27 @@ public abstract class ProxyMain extends AbstractMain {
                 EnsembleView ensemble = ConfigurableEnsembleViewFactory.newInstance().get(configuration());
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
-                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, ensemble, timeOut);
-                Factory<ClientProtocolConnection> clientFactory = ensembleFactory.get();
-
+                final EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, ensemble, timeOut);
+                final AssignXidProcessor xids = AssignXidProcessor.newInstance();
+                Factory<SessionClient> clientFactory = new Factory<SessionClient>() {
+                    @Override
+                    public SessionClient get() {
+                        return SessionClient.newInstance(xids, ensembleFactory.get());
+                    }
+                };
+                ClientProtocolConnectionsService clients = monitorsFactory.apply(
+                        ClientProtocolConnectionsService.newInstance(clientFactory));
+                
+                
                 // Server
                 ServerView.Address<?> address = ConfigurableServerAddressViewFactory.newInstance().get(configuration());
                 ServerConnectionFactory serverConnections = monitorsFactory.apply(serverConnectionFactory().get(address.get()));
                 SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(configuration());
                 ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
                 ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
+                final AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
                 final ProxyServerExecutor serverExecutor = ProxyServerExecutor.newInstance(
-                        executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, clientFactory);
+                        executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, zxids, xids, clients);
                 final Server server = Server.newInstance(publisherFactory(), serverConnections, serverExecutor);
                 
                 return ProxyMain.super.application();

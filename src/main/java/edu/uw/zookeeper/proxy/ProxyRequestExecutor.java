@@ -10,10 +10,11 @@ import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import edu.uw.zookeeper.client.SessionClient;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionReplyWrapper;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Processor;
@@ -26,7 +27,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             Publisher publisher,
             ProxyServerExecutor executor,
             long sessionId,
-            ClientProtocolConnection client) throws IOException {
+            SessionClient client) throws IOException {
         return new ProxyRequestExecutor(publisher,
                 executor,
                 processor(executor, sessionId),
@@ -97,7 +98,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
         protected ProxyRequestTask(Operation.SessionRequest task) throws Exception {
             super(task);
             Operation.SessionRequest backendRequest = requestProcessor.apply(task);
-            this.backendReply = client.submit(backendRequest);
+            this.backendReply = client.get().submit(backendRequest);
         }
         
         public ListenableFuture<Operation.SessionReply> backendReply() {
@@ -145,7 +146,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
     protected final BlockingQueue<ProxyRequestTask> pending;
     protected final ProxyRequestProcessor requestProcessor;
     protected final ProxyReplyProcessor replyProcessor;
-    protected final ClientProtocolConnection client;
+    protected final SessionClient client;
 
     protected ProxyRequestExecutor(
             Publisher publisher,
@@ -154,15 +155,15 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             ProxyRequestProcessor requestProcessor,
             ProxyReplyProcessor replyProcessor,
             long sessionId,
-            ClientProtocolConnection client) throws IOException {
+            SessionClient client) throws IOException {
         super(publisher, executor, processor, sessionId);
         this.requestProcessor = requestProcessor;
         this.replyProcessor = replyProcessor;
         this.pending = new LinkedBlockingQueue<ProxyRequestTask>();
         this.client = client;
-        client.register(this);
-        if (client.state() == ProtocolState.ANONYMOUS) {
-            client.connect();
+        client.get().register(this);
+        if (client.get().state() == ProtocolState.ANONYMOUS) {
+            client.get().connect();
         }
     }
 

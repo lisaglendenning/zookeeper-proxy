@@ -6,7 +6,7 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.client.AssignXidProcessor;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
+import edu.uw.zookeeper.client.SessionClient;
 import edu.uw.zookeeper.server.AssignZxidProcessor;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
 import edu.uw.zookeeper.server.ServerExecutor;
@@ -19,7 +19,7 @@ public class ProxyServerExecutor extends ServerExecutor {
             final ListeningExecutorService executor,
             final Factory<Publisher> publisherFactory,
             final ExpiringSessionManager sessions,
-            final Factory<ClientProtocolConnection> clientFactory) {
+            final Factory<SessionClient> clientFactory) {
         AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
         return newInstance(
@@ -37,7 +37,7 @@ public class ProxyServerExecutor extends ServerExecutor {
             ExpiringSessionManager sessions,
             AssignZxidProcessor zxids,
             AssignXidProcessor xids,
-            Factory<ClientProtocolConnection> clientFactory) {
+            Factory<SessionClient> clientFactory) {
         return new ProxyServerExecutor(
                 executor,
                 publisherFactory,
@@ -47,7 +47,7 @@ public class ProxyServerExecutor extends ServerExecutor {
                 clientFactory);
     }
     
-    protected final Factory<ClientProtocolConnection> clientFactory;
+    protected final Factory<SessionClient> clientFactory;
     protected final AssignXidProcessor xids;
     
     protected ProxyServerExecutor(
@@ -56,7 +56,7 @@ public class ProxyServerExecutor extends ServerExecutor {
             ExpiringSessionManager sessions,
             AssignZxidProcessor zxids,
             AssignXidProcessor xids,
-            Factory<ClientProtocolConnection> clientFactory) {
+            Factory<SessionClient> clientFactory) {
         super(executor, publisherFactory, sessions, zxids);
         this.xids = xids;
         this.clientFactory = clientFactory;
@@ -68,7 +68,7 @@ public class ProxyServerExecutor extends ServerExecutor {
     
     @Override
     protected PublishingSessionRequestExecutor newSessionRequestExecutor(Long sessionId) {
-        ClientProtocolConnection client = clientFactory.get();
+        SessionClient client = clientFactory.get();
         try {
             return ProxyRequestExecutor.newInstance(
                     publisherFactory.get(), this, sessionId, client);
