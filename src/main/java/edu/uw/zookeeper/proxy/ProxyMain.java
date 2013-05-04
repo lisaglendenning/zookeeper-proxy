@@ -11,6 +11,7 @@ import edu.uw.zookeeper.client.ClientProtocolConnectionsService;
 import edu.uw.zookeeper.client.EnsembleFactory;
 import edu.uw.zookeeper.client.ClientMain;
 import edu.uw.zookeeper.client.SessionClient;
+import edu.uw.zookeeper.data.ZNodePath;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
@@ -32,6 +33,9 @@ import edu.uw.zookeeper.util.TimeValue;
 
 public abstract class ProxyMain extends AbstractMain {
 
+    public static String CHROOT_ARG = "chroot";
+    public static ZNodePath EMPTY_CHROOT = ZNodePath.ROOT;
+    
     protected final Singleton<Application> application;
     
     protected ProxyMain(Configuration configuration) {
