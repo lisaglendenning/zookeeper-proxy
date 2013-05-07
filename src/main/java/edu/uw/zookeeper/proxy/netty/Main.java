@@ -50,8 +50,9 @@ public class Main extends ProxyMain {
         // server
         ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
-                        NioServerBootstrapFactory.newInstance(threadFactory(), serviceMonitor()));
-        this.serverConnectionFactory = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(publisherFactory(), connectionBuilder, serverBootstrapFactory);
+                        NioServerBootstrapFactory.newInstance(groupFactory));
+        this.serverConnectionFactory = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(
+                publisherFactory(), connectionBuilder, serverBootstrapFactory);
     }
 
     @Override

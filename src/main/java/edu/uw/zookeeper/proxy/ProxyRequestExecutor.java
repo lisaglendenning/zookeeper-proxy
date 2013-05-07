@@ -13,7 +13,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.client.SessionClient;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.SessionReplyWrapper;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
 import edu.uw.zookeeper.util.Pair;
@@ -31,62 +30,8 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
         return new ProxyRequestExecutor(publisher,
                 executor,
                 processor(executor, sessionId),
-                new ProxyRequestProcessor(executor.xids()),
-                new ProxyReplyProcessor(executor.zxids()),
                 sessionId,
                 client);
-    }
-
-    public static class ProxyRequestProcessor implements Processor<Operation.SessionRequest, Operation.SessionRequest> {
-
-        public static ProxyRequestProcessor newInstance(
-                Processor<Operation.Request, Operation.SessionRequest> delegate) {
-            return new ProxyRequestProcessor(delegate);
-        }
-        
-        protected final Processor<Operation.Request, Operation.SessionRequest> delegate;
-        
-        protected ProxyRequestProcessor(
-                Processor<Operation.Request, Operation.SessionRequest> wrapper) {
-            this.delegate = wrapper;
-        }
-        
-        @Override
-        public Operation.SessionRequest apply(Operation.SessionRequest input) throws Exception {
-            return delegate.apply(input.request());
-        }
-    }
-    
-    public static class ProxyReplyProcessor implements Processor<Pair<Optional<Operation.SessionRequest>, Operation.SessionReply>, Operation.SessionReply> {
-
-        public static ProxyReplyProcessor newInstance(
-                Processor<Operation.Reply, Long> delegate) {
-            return new ProxyReplyProcessor(delegate);
-        }
-        
-        protected final Processor<Operation.Reply, Long> delegate;
-        
-        protected ProxyReplyProcessor(
-                Processor<Operation.Reply, Long> delegate) {
-            this.delegate = delegate;
-        }
-        
-        @Override
-        public Operation.SessionReply apply(Pair<Optional<Operation.SessionRequest>, Operation.SessionReply> input) throws Exception {
-            Optional<Operation.SessionRequest> request = input.first();
-            Operation.SessionReply reply = input.second();
-            
-            int xid;
-            if (request.isPresent()){
-                xid = request.get().xid();
-            } else {
-                xid = reply.xid();
-            }
-            
-            Operation.Reply payload = reply.reply();
-            Long zxid = delegate.apply(payload);
-            return SessionReplyWrapper.create(xid, zxid, payload);
-        }
     }
 
     protected class ProxyRequestTask extends
@@ -97,7 +42,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
 
         protected ProxyRequestTask(Operation.SessionRequest task) throws Exception {
             super(task);
-            Operation.SessionRequest backendRequest = requestProcessor.apply(task);
+            Operation.SessionRequest backendRequest = executor().asRequestProcessor().apply(task);
             this.backendReply = client.get().submit(backendRequest);
         }
         
@@ -126,13 +71,13 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
                     switch (request.request().opcode()) {
                     case CLOSE_SESSION:
                         if (reply.reply() instanceof Operation.Error) {
-                            result = replyProcessor.apply(Pair.create(Optional.of(request), reply));
+                            result = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), reply));
                         } else {
                             result = processor.apply(request);
                         }
                         break;
                     default:
-                        result = replyProcessor.apply(Pair.create(Optional.of(request), reply));
+                        result = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), reply));
                         break;
                     }
                     future().set(result);
@@ -144,27 +89,26 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
     }
 
     protected final BlockingQueue<ProxyRequestTask> pending;
-    protected final ProxyRequestProcessor requestProcessor;
-    protected final ProxyReplyProcessor replyProcessor;
     protected final SessionClient client;
 
     protected ProxyRequestExecutor(
             Publisher publisher,
             ProxyServerExecutor executor,
             Processor<Operation.SessionRequest, Operation.SessionReply> processor,
-            ProxyRequestProcessor requestProcessor,
-            ProxyReplyProcessor replyProcessor,
             long sessionId,
             SessionClient client) throws IOException {
         super(publisher, executor, processor, sessionId);
-        this.requestProcessor = requestProcessor;
-        this.replyProcessor = replyProcessor;
         this.pending = new LinkedBlockingQueue<ProxyRequestTask>();
         this.client = client;
         client.get().register(this);
         if (client.get().state() == ProtocolState.ANONYMOUS) {
             client.get().connect();
         }
+    }
+
+    @Override
+    public ProxyServerExecutor executor() {
+        return (ProxyServerExecutor) executor;
     }
 
     @Override
@@ -192,7 +136,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
         // ordering constraint: queue order is the same as submit to backend order
         ProxyRequestTask task = new ProxyRequestTask(request);
         pending.add(task);
-        task.backendReply().addListener(this, executor.executor()); // TODO: or sameThread?
+        task.backendReply().addListener(this, executor().executor()); // TODO: or sameThread?
         return task;
     }
 
@@ -205,7 +149,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
                     @Override
                     public void run() {
                         try {
-                            Operation.SessionReply result = replyProcessor.apply(Pair.create(Optional.<Operation.SessionRequest>absent(), message));
+                            Operation.SessionReply result = executor().asReplyProcessor().apply(Pair.create(Optional.<Operation.SessionRequest>absent(), message));
                             post(result);
                         } catch (Exception e) {
                             // TODO

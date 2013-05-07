@@ -3,6 +3,8 @@ package edu.uw.zookeeper.proxy;
 
 import java.net.SocketAddress;
 
+import com.google.common.base.Optional;
+
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerView;
@@ -23,6 +25,7 @@ import edu.uw.zookeeper.server.ExpiringSessionManager;
 import edu.uw.zookeeper.server.Server;
 import edu.uw.zookeeper.server.SessionParametersPolicy;
 import edu.uw.zookeeper.util.Application;
+import edu.uw.zookeeper.util.Arguments;
 import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.Factories;
 import edu.uw.zookeeper.util.Factory;
@@ -71,8 +74,18 @@ public abstract class ProxyMain extends AbstractMain {
                 ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(publisherFactory.get(), policy);
                 ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, executors.asScheduledExecutorServiceFactory().get(), configuration()));
                 final AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
-                final ProxyServerExecutor serverExecutor = ProxyServerExecutor.newInstance(
-                        executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, zxids, xids, clients);
+                
+                Arguments arguments = configuration().asArguments();
+                if (! arguments.has(CHROOT_ARG)) {
+                    arguments.add(arguments.newOption(CHROOT_ARG, Optional.of("Path"), Optional.of(EMPTY_CHROOT.toString())));
+                }
+                arguments.parse();
+                ZNodePath chroot = ZNodePath.of(arguments.getValue(CHROOT_ARG));
+                final ProxyServerExecutor serverExecutor = (chroot == EMPTY_CHROOT)
+                        ? ProxyServerExecutor.newInstance(
+                                executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, zxids, xids, clients)
+                        : ProxyServerExecutor.ChrootedProxyServerExecutor.newInstance(
+                                executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, zxids, xids, clients, chroot);
                 final Server server = Server.newInstance(publisherFactory(), serverConnections, serverExecutor);
                 
                 return ProxyMain.super.application();
