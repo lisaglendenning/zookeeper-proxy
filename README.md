@@ -1,10 +1,10 @@
-Simple ZooKeeper server proxy based on [zookeeper-lite](http://github.com/lisaglendenning/zookeeper-lite).
+Simple ZooKeeper server chroot proxy based on [zookeeper-lite](http://github.com/lisaglendenning/zookeeper-lite).
 
 ## Quickstart
 
 <pre>
 $ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="edu.uw.zookeeper.proxy.netty.Main" -Dexec.args="--help"
-Usage: edu.uw.zookeeper.proxy.netty.Main [--ensemble=Ensemble] [--help] [--server=Address]
+Usage: edu.uw.zookeeper.proxy.netty.Main [--chroot=Path] [--ensemble=Ensemble] [--help] [--server=Address]
 </pre>
 
 ## Building
