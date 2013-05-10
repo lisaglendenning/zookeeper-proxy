@@ -13,7 +13,7 @@ import edu.uw.zookeeper.client.ClientProtocolConnectionsService;
 import edu.uw.zookeeper.client.EnsembleFactory;
 import edu.uw.zookeeper.client.ClientMain;
 import edu.uw.zookeeper.client.SessionClient;
-import edu.uw.zookeeper.data.ZNodePath;
+import edu.uw.zookeeper.data.ZNodeName;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
@@ -37,7 +37,7 @@ import edu.uw.zookeeper.util.TimeValue;
 public abstract class ProxyMain extends AbstractMain {
 
     public static String CHROOT_ARG = "chroot";
-    public static ZNodePath EMPTY_CHROOT = ZNodePath.ROOT;
+    public static ZNodeName.Path EMPTY_CHROOT = ZNodeName.Path.root();
     
     protected final Singleton<Application> application;
     
@@ -80,7 +80,7 @@ public abstract class ProxyMain extends AbstractMain {
                     arguments.add(arguments.newOption(CHROOT_ARG, Optional.of("Path"), Optional.of(EMPTY_CHROOT.toString())));
                 }
                 arguments.parse();
-                ZNodePath chroot = ZNodePath.of(arguments.getValue(CHROOT_ARG));
+                ZNodeName.Path chroot = ZNodeName.Path.of(arguments.getValue(CHROOT_ARG));
                 final ProxyServerExecutor serverExecutor = (chroot == EMPTY_CHROOT)
                         ? ProxyServerExecutor.newInstance(
                                 executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, zxids, xids, clients)

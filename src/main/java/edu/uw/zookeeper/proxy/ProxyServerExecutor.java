@@ -8,7 +8,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.client.AssignXidProcessor;
 import edu.uw.zookeeper.client.SessionClient;
-import edu.uw.zookeeper.data.ZNodePath;
+import edu.uw.zookeeper.data.ZNodeName;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionReplyWrapper;
 import edu.uw.zookeeper.server.AssignZxidProcessor;
@@ -158,7 +158,7 @@ public class ProxyServerExecutor extends ServerExecutor {
                 Factory<Publisher> publisherFactory,
                 ExpiringSessionManager sessions,
                 Factory<SessionClient> clientFactory,
-                ZNodePath chroot) {
+                ZNodeName.Path chroot) {
             AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
             AssignXidProcessor xids = AssignXidProcessor.newInstance();
             return newInstance(
@@ -178,7 +178,7 @@ public class ProxyServerExecutor extends ServerExecutor {
                 AssignZxidProcessor zxids,
                 AssignXidProcessor xids,
                 Factory<SessionClient> clientFactory,
-                ZNodePath chroot) {
+                ZNodeName.Path chroot) {
             return new ChrootedProxyServerExecutor(
                     executor,
                     publisherFactory,
@@ -195,7 +195,7 @@ public class ProxyServerExecutor extends ServerExecutor {
 
             public static ChrootedProxyRequestProcessor newInstance(
                     AssignXidProcessor xids,
-                    ZNodePath chroot) {
+                    ZNodeName.Path chroot) {
                 return new ChrootedProxyRequestProcessor(
                         xids, 
                         ChrootRequestProcessor.newInstance(chroot));
@@ -220,7 +220,7 @@ public class ProxyServerExecutor extends ServerExecutor {
 
             public static ChrootedProxyReplyProcessor newInstance(
                     AssignZxidProcessor zxids,
-                    ZNodePath chroot) {
+                    ZNodeName.Path chroot) {
                 return new ChrootedProxyReplyProcessor(
                         zxids,
                         ChrootResponseProcessor.newInstance(chroot));
@@ -256,7 +256,7 @@ public class ProxyServerExecutor extends ServerExecutor {
             }
         }
         
-        protected final ZNodePath chroot;
+        protected final ZNodeName.Path chroot;
         
         protected ChrootedProxyServerExecutor(
                 ListeningExecutorService executor,
@@ -267,7 +267,7 @@ public class ProxyServerExecutor extends ServerExecutor {
                 Processor<Operation.SessionRequest, Operation.SessionRequest> requestProcessor,
                 Processor<Pair<Optional<Operation.SessionRequest>, Operation.SessionReply>, Operation.SessionReply> replyProcessor,
                 Factory<SessionClient> clientFactory,
-                ZNodePath chroot) {
+                ZNodeName.Path chroot) {
             super(executor, publisherFactory, sessions, zxids, xids, requestProcessor, replyProcessor, clientFactory);
             this.chroot = chroot;
         }

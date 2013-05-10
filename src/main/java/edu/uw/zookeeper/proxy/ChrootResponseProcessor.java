@@ -2,12 +2,12 @@ package edu.uw.zookeeper.proxy;
 
 import com.google.common.base.Function;
 
-import edu.uw.zookeeper.data.ZNodePath;
+import edu.uw.zookeeper.data.ZNodeName;
 import edu.uw.zookeeper.util.Reference;
 
-public class ChrootResponseProcessor extends ResponsePathProcessor implements Reference<ZNodePath> {
+public class ChrootResponseProcessor extends ResponsePathProcessor implements Reference<ZNodeName.Path> {
 
-    public static ChrootResponseProcessor newInstance(ZNodePath chroot) {
+    public static ChrootResponseProcessor newInstance(ZNodeName.Path chroot) {
         return new ChrootResponseProcessor(chroot);
     }
 
@@ -22,7 +22,7 @@ public class ChrootResponseProcessor extends ResponsePathProcessor implements Re
 
         @Override
         public String apply(String input) {
-            if (! ZNodePath.SLASH.equals(input.charAt(0))) {
+            if (! ZNodeName.Path.SLASH.equals(input.charAt(0))) {
                 return input;
             }
             int chrootLength = chroot.length();
@@ -30,21 +30,21 @@ public class ChrootResponseProcessor extends ResponsePathProcessor implements Re
                 throw new IllegalArgumentException();
             }
             String chrootedPath = (input.length() == chrootLength)
-                    ? ZNodePath.SLASH.toString()
+                    ? ZNodeName.Path.SLASH.toString()
                             : input.substring(chrootLength);
             return chrootedPath;
         }
     }
     
-    protected final ZNodePath chroot;
+    protected final ZNodeName.Path chroot;
     
-    protected ChrootResponseProcessor(ZNodePath chroot) {
+    protected ChrootResponseProcessor(ZNodeName.Path chroot) {
         super(new UnchrootPath(chroot.toString()));
         this.chroot = chroot;
     }
     
     @Override
-    public ZNodePath get() {
+    public ZNodeName.Path get() {
         return chroot;
     }
 }
