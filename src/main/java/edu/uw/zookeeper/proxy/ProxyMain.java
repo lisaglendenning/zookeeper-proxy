@@ -81,7 +81,7 @@ public abstract class ProxyMain extends AbstractMain {
                 }
                 arguments.parse();
                 ZNodeName.Path chroot = ZNodeName.Path.of(arguments.getValue(CHROOT_ARG));
-                final ProxyServerExecutor serverExecutor = (chroot == EMPTY_CHROOT)
+                final ProxyServerExecutor serverExecutor = EMPTY_CHROOT.equals(chroot)
                         ? ProxyServerExecutor.newInstance(
                                 executors.asListeningExecutorServiceFactory().get(), publisherFactory(), sessions, zxids, xids, clients)
                         : ProxyServerExecutor.ChrootedProxyServerExecutor.newInstance(
