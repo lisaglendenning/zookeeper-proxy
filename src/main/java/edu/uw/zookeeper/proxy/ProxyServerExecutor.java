@@ -7,16 +7,17 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.client.AssignXidProcessor;
-import edu.uw.zookeeper.client.SessionClient;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionReplyWrapper;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.server.AssignZxidProcessor;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
 import edu.uw.zookeeper.server.ServerExecutor;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Processors;
 import edu.uw.zookeeper.util.Publisher;
 
 public class ProxyServerExecutor extends ServerExecutor {
@@ -25,7 +26,7 @@ public class ProxyServerExecutor extends ServerExecutor {
             ListeningExecutorService executor,
             Factory<Publisher> publisherFactory,
             ExpiringSessionManager sessions,
-            Factory<SessionClient> clientFactory) {
+            Factory<ClientProtocolConnection> clientFactory) {
         AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
         return newInstance(
@@ -43,38 +44,18 @@ public class ProxyServerExecutor extends ServerExecutor {
             ExpiringSessionManager sessions,
             AssignZxidProcessor zxids,
             AssignXidProcessor xids,
-            Factory<SessionClient> clientFactory) {
+            Factory<ClientProtocolConnection> clientFactory) {
         return new ProxyServerExecutor(
                 executor,
                 publisherFactory,
                 sessions,
                 zxids, 
                 xids, 
-                ProxyRequestProcessor.newInstance(xids),
+                Processors.<Operation.Request>identity(),
                 ProxyReplyProcessor.newInstance(zxids),
                 clientFactory);
     }
 
-    public static class ProxyRequestProcessor implements Processor<Operation.SessionRequest, Operation.SessionRequest> {
-
-        public static ProxyRequestProcessor newInstance(
-                AssignXidProcessor xids) {
-            return new ProxyRequestProcessor(xids);
-        }
-        
-        protected final AssignXidProcessor xids;
-        
-        protected ProxyRequestProcessor(
-                AssignXidProcessor xids) {
-            this.xids = xids;
-        }
-        
-        @Override
-        public Operation.SessionRequest apply(Operation.SessionRequest input) throws Exception {
-            return xids.apply(input.request());
-        }
-    }
-    
     public static class ProxyReplyProcessor implements Processor<Pair<Optional<Operation.SessionRequest>, Operation.SessionReply>, Operation.SessionReply> {
 
         public static ProxyReplyProcessor newInstance(
@@ -107,9 +88,9 @@ public class ProxyServerExecutor extends ServerExecutor {
         }
     }
 
-    protected final Factory<SessionClient> clientFactory;
+    protected final Factory<ClientProtocolConnection> clientFactory;
     protected final AssignXidProcessor xids;
-    protected final Processor<Operation.SessionRequest, Operation.SessionRequest> requestProcessor;
+    protected final Processor<Operation.Request, Operation.Request> requestProcessor;
     protected final Processor<Pair<Optional<Operation.SessionRequest>, Operation.SessionReply>, Operation.SessionReply> replyProcessor;
     
     protected ProxyServerExecutor(
@@ -118,9 +99,9 @@ public class ProxyServerExecutor extends ServerExecutor {
             ExpiringSessionManager sessions,
             AssignZxidProcessor zxids,
             AssignXidProcessor xids,
-            Processor<Operation.SessionRequest, Operation.SessionRequest> requestProcessor,
+            Processor<Operation.Request, Operation.Request> requestProcessor,
             Processor<Pair<Optional<Operation.SessionRequest>, Operation.SessionReply>, Operation.SessionReply> replyProcessor,
-            Factory<SessionClient> clientFactory) {
+            Factory<ClientProtocolConnection> clientFactory) {
         super(executor, publisherFactory, sessions, zxids);
         this.xids = xids;
         this.clientFactory = clientFactory;
@@ -132,7 +113,7 @@ public class ProxyServerExecutor extends ServerExecutor {
         return xids;
     }
     
-    public Processor<Operation.SessionRequest, Operation.SessionRequest> asRequestProcessor() {
+    public Processor<Operation.Request, Operation.Request> asRequestProcessor() {
         return requestProcessor;
     }
     
@@ -142,7 +123,7 @@ public class ProxyServerExecutor extends ServerExecutor {
     
     @Override
     protected PublishingSessionRequestExecutor newSessionRequestExecutor(Long sessionId) {
-        SessionClient client = clientFactory.get();
+        ClientProtocolConnection client = clientFactory.get();
         try {
             return ProxyRequestExecutor.newInstance(
                     publisherFactory.get(), this, sessionId, client);
@@ -157,7 +138,7 @@ public class ProxyServerExecutor extends ServerExecutor {
                 ListeningExecutorService executor,
                 Factory<Publisher> publisherFactory,
                 ExpiringSessionManager sessions,
-                Factory<SessionClient> clientFactory,
+                Factory<ClientProtocolConnection> clientFactory,
                 ZNodeLabel.Path chroot) {
             AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
             AssignXidProcessor xids = AssignXidProcessor.newInstance();
@@ -177,7 +158,7 @@ public class ProxyServerExecutor extends ServerExecutor {
                 ExpiringSessionManager sessions,
                 AssignZxidProcessor zxids,
                 AssignXidProcessor xids,
-                Factory<SessionClient> clientFactory,
+                Factory<ClientProtocolConnection> clientFactory,
                 ZNodeLabel.Path chroot) {
             return new ChrootedProxyServerExecutor(
                     executor,
@@ -185,35 +166,10 @@ public class ProxyServerExecutor extends ServerExecutor {
                     sessions,
                     zxids, 
                     xids, 
-                    ChrootedProxyRequestProcessor.newInstance(xids, chroot),
+                    ChrootRequestProcessor.newInstance(chroot),
                     ChrootedProxyReplyProcessor.newInstance(zxids, chroot),
                     clientFactory,
                     chroot);
-        }
-
-        public static class ChrootedProxyRequestProcessor extends ProxyRequestProcessor {
-
-            public static ChrootedProxyRequestProcessor newInstance(
-                    AssignXidProcessor xids,
-                    ZNodeLabel.Path chroot) {
-                return new ChrootedProxyRequestProcessor(
-                        xids, 
-                        ChrootRequestProcessor.newInstance(chroot));
-            }
-            
-            protected final ChrootRequestProcessor chroots;
-            
-            protected ChrootedProxyRequestProcessor(
-                    AssignXidProcessor xids,
-                    ChrootRequestProcessor chroots) {
-                super(xids);
-                this.chroots = chroots;
-            }
-            
-            @Override
-            public Operation.SessionRequest apply(Operation.SessionRequest input) throws Exception {
-                return xids.apply(chroots.apply(input.request()));
-            }
         }
 
         public static class ChrootedProxyReplyProcessor extends ProxyReplyProcessor {
@@ -264,9 +220,9 @@ public class ProxyServerExecutor extends ServerExecutor {
                 ExpiringSessionManager sessions, 
                 AssignZxidProcessor zxids,
                 AssignXidProcessor xids, 
-                Processor<Operation.SessionRequest, Operation.SessionRequest> requestProcessor,
+                Processor<Operation.Request, Operation.Request> requestProcessor,
                 Processor<Pair<Optional<Operation.SessionRequest>, Operation.SessionReply>, Operation.SessionReply> replyProcessor,
-                Factory<SessionClient> clientFactory,
+                Factory<ClientProtocolConnection> clientFactory,
                 ZNodeLabel.Path chroot) {
             super(executor, publisherFactory, sessions, zxids, xids, requestProcessor, replyProcessor, clientFactory);
             this.chroot = chroot;

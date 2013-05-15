@@ -11,14 +11,15 @@ import com.google.common.base.Throwables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.client.SessionClient;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
+import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.SettableTask;
+import edu.uw.zookeeper.util.PromiseTask;
+import edu.uw.zookeeper.util.SettableFuturePromise;
 
 public class ProxyRequestExecutor extends ServerSessionRequestExecutor implements Runnable {
 
@@ -26,7 +27,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             Publisher publisher,
             ProxyServerExecutor executor,
             long sessionId,
-            SessionClient client) throws IOException {
+            ClientProtocolConnection client) throws IOException {
         return new ProxyRequestExecutor(publisher,
                 executor,
                 processor(executor, sessionId),
@@ -35,23 +36,22 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
     }
 
     protected class ProxyRequestTask extends
-            SettableTask<Operation.SessionRequest, Operation.SessionReply>
+            PromiseTask<Operation.SessionRequest, Operation.SessionReply>
             implements Runnable {
 
-        protected final ListenableFuture<Operation.SessionReply> backendReply;
+        protected final ClientProtocolConnection.RequestFuture backend;
 
         protected ProxyRequestTask(Operation.SessionRequest task) throws Exception {
-            super(task);
-            Operation.SessionRequest backendRequest = executor().asRequestProcessor().apply(task);
-            this.backendReply = client.get().submit(backendRequest);
+            super(task, SettableFuturePromise.<Operation.SessionReply>create());
+            this.backend = client.submit(executor().asRequestProcessor().apply(task.request()));
         }
         
-        public ListenableFuture<Operation.SessionReply> backendReply() {
-            return backendReply;
+        public ClientProtocolConnection.RequestFuture backend() {
+            return backend;
         }
         
         public boolean isRunnable() {
-            return (! future().isDone() && backendReply.isDone());
+            return (! isDone() && backend().isDone());
         }
         
         @Override
@@ -60,49 +60,49 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
                 return;
             }
             
-            if (backendReply.isCancelled()) {
-                future().cancel(false);
+            if (backend().isCancelled()) {
+                delegate().cancel(false);
             } else {
                 try {
-                    Operation.SessionReply reply = backendReply.get();
+                    Operation.SessionResult result = backend().get();
                     // Translate backend reply to proxy reply
                     Operation.SessionRequest request = task();
-                    Operation.SessionReply result;
+                    Operation.SessionReply proxied;
                     switch (request.request().opcode()) {
                     case CLOSE_SESSION:
-                        if (reply.reply() instanceof Operation.Error) {
-                            result = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), reply));
+                        if (result.reply() instanceof Operation.Error) {
+                            proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.reply()));
                         } else {
-                            result = processor.apply(request);
+                            proxied = processor.apply(request);
                         }
                         break;
                     default:
-                        result = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), reply));
+                        proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.reply()));
                         break;
                     }
-                    future().set(result);
+                    set(proxied);
                 } catch (Exception e) {
-                    future().setException(e);
+                    setException(e);
                 }
             }
         }
     }
 
     protected final BlockingQueue<ProxyRequestTask> pending;
-    protected final SessionClient client;
+    protected final ClientProtocolConnection client;
 
     protected ProxyRequestExecutor(
             Publisher publisher,
             ProxyServerExecutor executor,
             Processor<Operation.SessionRequest, Operation.SessionReply> processor,
             long sessionId,
-            SessionClient client) throws IOException {
+            ClientProtocolConnection client) throws IOException {
         super(publisher, executor, processor, sessionId);
         this.pending = new LinkedBlockingQueue<ProxyRequestTask>();
         this.client = client;
-        client.get().register(this);
-        if (client.get().state() == ProtocolState.ANONYMOUS) {
-            client.get().connect();
+        client.register(this);
+        if (client.state() == ProtocolState.ANONYMOUS) {
+            client.connect();
         }
     }
 
@@ -129,14 +129,14 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
         } catch (Exception e) {
             throw new RejectedExecutionException(e);
         }
-        return task.future();
+        return task;
     }
     
     protected synchronized ProxyRequestTask enqueueRequest(Operation.SessionRequest request) throws Exception {
         // ordering constraint: queue order is the same as submit to backend order
         ProxyRequestTask task = new ProxyRequestTask(request);
         pending.add(task);
-        task.backendReply().addListener(this, executor().executor()); // TODO: or sameThread?
+        task.backend().addListener(this, executor().executor()); // TODO: or sameThread?
         return task;
     }
 
