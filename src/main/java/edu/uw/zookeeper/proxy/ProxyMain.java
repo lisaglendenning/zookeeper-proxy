@@ -9,8 +9,9 @@ import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.client.AssignXidProcessor;
+import edu.uw.zookeeper.client.ClientMain.ConfigurableEnsembleViewFactory;
 import edu.uw.zookeeper.client.ClientProtocolConnectionsService;
-import edu.uw.zookeeper.client.EnsembleFactory;
+import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.ClientMain;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
@@ -22,6 +23,7 @@ import edu.uw.zookeeper.server.DefaultSessionParametersPolicy;
 import edu.uw.zookeeper.server.ExpireSessionsTask;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
 import edu.uw.zookeeper.server.Server;
+import edu.uw.zookeeper.server.ServerMain.ConfigurableServerAddressViewFactory;
 import edu.uw.zookeeper.server.SessionParametersPolicy;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
@@ -55,7 +57,7 @@ public abstract class ProxyMain extends AbstractMain {
                 ParameterizedFactory<Connection, PingingClientCodecConnection> codecFactory = PingingClientCodecConnection.factory(
                         publisherFactory(), timeOut, executors().asScheduledExecutorServiceFactory().get());
                 AssignXidProcessor xids = AssignXidProcessor.newInstance();
-                EnsembleFactory ensembleFactory = EnsembleFactory.newInstance(clientConnections, codecFactory, xids, ensemble, timeOut);
+                EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, publisherFactory(), codecFactory, xids, ensemble, timeOut);
                 ClientProtocolConnectionsService clients = monitorsFactory.apply(
                         ClientProtocolConnectionsService.newInstance(ensembleFactory));
                 

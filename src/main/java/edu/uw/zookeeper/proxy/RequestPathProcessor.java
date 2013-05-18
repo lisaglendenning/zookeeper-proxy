@@ -32,8 +32,8 @@ public class RequestPathProcessor implements Processor<Operation.Request, Operat
                 for (Operation.Request request: (IMultiRequest)record) {
                     apply(request);
                 }
-            } else if (record instanceof Records.PathHolder) {
-                Records.PathHolder pathed = (Records.PathHolder)record;
+            } else if (record instanceof Records.PathRecord) {
+                Records.PathRecord pathed = (Records.PathRecord)record;
                 String path = pathed.getPath();
                 String transformed = transform.apply(path);
                 if (path != transformed) {

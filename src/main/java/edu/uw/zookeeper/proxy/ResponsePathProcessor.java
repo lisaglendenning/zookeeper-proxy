@@ -35,8 +35,8 @@ public class ResponsePathProcessor implements Processor<Operation.Response, Oper
                 for (Operation.Response request: (IMultiResponse)record) {
                     apply(request);
                 }
-            } else if (record instanceof Records.PathHolder) {
-                Records.PathHolder pathed = (Records.PathHolder)record;
+            } else if (record instanceof Records.PathRecord) {
+                Records.PathRecord pathed = (Records.PathRecord)record;
                 String path = pathed.getPath();
                 String transformed = transform.apply(path);
                 if (path != transformed) {
