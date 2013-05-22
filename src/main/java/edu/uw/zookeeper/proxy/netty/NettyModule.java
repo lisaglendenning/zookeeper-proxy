@@ -8,7 +8,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 
-import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
@@ -23,15 +23,15 @@ import edu.uw.zookeeper.util.Singleton;
 
 public class NettyModule {
 
-    public static NettyModule newInstance(AbstractMain main) {
+    public static NettyModule newInstance(RuntimeModule main) {
         return new NettyModule(main);
     }
     
-    public static enum EventLoopGroupFactory implements ParameterizedFactory<AbstractMain, Singleton<? extends EventLoopGroup>> {
+    public static enum EventLoopGroupFactory implements ParameterizedFactory<RuntimeModule, Singleton<? extends EventLoopGroup>> {
         INSTANCE;
         
         @Override
-        public Singleton<? extends EventLoopGroup> get(AbstractMain main) {
+        public Singleton<? extends EventLoopGroup> get(RuntimeModule main) {
             ThreadFactory threads = DaemonThreadFactory.getInstance().get(main.threadFactory().get());
             return MonitoredEventLoopGroupFactory.newInstance(
                     NioEventLoopGroupFactory.DEFAULT,
@@ -43,24 +43,24 @@ public class NettyModule {
     protected final Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory;
     protected final ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> serverConnectionFactory;
     
-    public NettyModule(AbstractMain main) {
+    public NettyModule(RuntimeModule runtime) {
         // shared eventloopgroup
-        this.groupFactory = EventLoopGroupFactory.INSTANCE.get(main);
+        this.groupFactory = EventLoopGroupFactory.INSTANCE.get(runtime);
         
         ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = 
-                ChannelConnection.PerConnectionPublisherFactory.newInstance(main.publisherFactory());
+                ChannelConnection.PerConnectionPublisherFactory.newInstance(runtime.publisherFactory());
         
         // client
         Factory<Bootstrap> bootstrapFactory = NioClientBootstrapFactory.newInstance(groupFactory);        
         this.clientConnectionFactory = 
-                ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(main.publisherFactory(), connectionBuilder, bootstrapFactory);
+                ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(runtime.publisherFactory(), connectionBuilder, bootstrapFactory);
 
         // server
         ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(groupFactory));
         this.serverConnectionFactory = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(
-                main.publisherFactory(), connectionBuilder, serverBootstrapFactory);
+                runtime.publisherFactory(), connectionBuilder, serverBootstrapFactory);
     }
 
     public Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory() {
