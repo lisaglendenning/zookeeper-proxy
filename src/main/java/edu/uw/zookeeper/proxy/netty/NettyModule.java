@@ -8,6 +8,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 
+import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
 import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
@@ -16,52 +17,57 @@ import edu.uw.zookeeper.netty.MonitoredEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.client.NioClientBootstrapFactory;
 import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.server.NioServerBootstrapFactory;
-import edu.uw.zookeeper.proxy.ProxyMain;
-import edu.uw.zookeeper.util.ConfigurableMain;
-import edu.uw.zookeeper.util.Configuration;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Singleton;
 
-public class Main extends ProxyMain {
+public class NettyModule {
 
-    public static void main(String[] args) {
-        ConfigurableMain.main(args, ConfigurableMain.DefaultApplicationFactory.newInstance(Main.class));
+    public static NettyModule newInstance(AbstractMain main) {
+        return new NettyModule(main);
     }
-
-    protected final Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory;
-    protected final ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> serverConnectionFactory;
     
-    public Main(Configuration configuration) {
-        super(configuration);
+    public static enum EventLoopGroupFactory implements ParameterizedFactory<AbstractMain, Singleton<? extends EventLoopGroup>> {
+        INSTANCE;
+        
+        @Override
+        public Singleton<? extends EventLoopGroup> get(AbstractMain main) {
+            ThreadFactory threads = DaemonThreadFactory.getInstance().get(main.threadFactory().get());
+            return MonitoredEventLoopGroupFactory.newInstance(
+                    NioEventLoopGroupFactory.DEFAULT,
+                    main.serviceMonitor()).get(threads);
+        }
+    }
+    
+    protected final Singleton<? extends EventLoopGroup> groupFactory;
+    protected final Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory;
+    protected final ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> serverConnectionFactory;
+    
+    public NettyModule(AbstractMain main) {
         // shared eventloopgroup
-        ThreadFactory threads = DaemonThreadFactory.getInstance().get(threadFactory().get());
-        Singleton<? extends EventLoopGroup> groupFactory = MonitoredEventLoopGroupFactory.newInstance(
-                NioEventLoopGroupFactory.DEFAULT,
-                serviceMonitor()).get(threads);
-
-        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = ChannelConnection.PerConnectionPublisherFactory.newInstance(publisherFactory());
+        this.groupFactory = EventLoopGroupFactory.INSTANCE.get(main);
+        
+        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = 
+                ChannelConnection.PerConnectionPublisherFactory.newInstance(main.publisherFactory());
         
         // client
         Factory<Bootstrap> bootstrapFactory = NioClientBootstrapFactory.newInstance(groupFactory);        
         this.clientConnectionFactory = 
-                ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(publisherFactory(), connectionBuilder, bootstrapFactory);
+                ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(main.publisherFactory(), connectionBuilder, bootstrapFactory);
 
         // server
         ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(groupFactory));
         this.serverConnectionFactory = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(
-                publisherFactory(), connectionBuilder, serverBootstrapFactory);
+                main.publisherFactory(), connectionBuilder, serverBootstrapFactory);
     }
 
-    @Override
-    protected Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory() {
+    public Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory() {
         return clientConnectionFactory;
     }
 
-    @Override
-    protected ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory> serverConnectionFactory() {
+    public ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> serverConnectionFactory() {
         return serverConnectionFactory;
     }
 }
