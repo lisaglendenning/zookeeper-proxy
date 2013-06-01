@@ -13,7 +13,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
+import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Processor;
@@ -27,7 +27,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             Publisher publisher,
             ProxyServerExecutor executor,
             long sessionId,
-            ClientProtocolConnection client) throws IOException {
+            ClientProtocolExecutor client) throws IOException {
         return new ProxyRequestExecutor(publisher,
                 executor,
                 processor(executor, sessionId),
@@ -39,14 +39,14 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             PromiseTask<Operation.SessionRequest, Operation.SessionReply>
             implements Runnable {
 
-        protected final ClientProtocolConnection.RequestFuture backend;
+        protected final ListenableFuture<Operation.SessionResult> backend;
 
         protected ProxyRequestTask(Operation.SessionRequest task) throws Exception {
             super(task, SettableFuturePromise.<Operation.SessionReply>create());
             this.backend = client.submit(executor().asRequestProcessor().apply(task.request()));
         }
         
-        public ClientProtocolConnection.RequestFuture backend() {
+        public ListenableFuture<Operation.SessionResult> backend() {
             return backend;
         }
         
@@ -89,14 +89,14 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
     }
 
     protected final BlockingQueue<ProxyRequestTask> pending;
-    protected final ClientProtocolConnection client;
+    protected final ClientProtocolExecutor client;
 
     protected ProxyRequestExecutor(
             Publisher publisher,
             ProxyServerExecutor executor,
             Processor<Operation.SessionRequest, Operation.SessionReply> processor,
             long sessionId,
-            ClientProtocolConnection client) throws IOException {
+            ClientProtocolExecutor client) throws IOException {
         super(publisher, executor, processor, sessionId);
         this.pending = new LinkedBlockingQueue<ProxyRequestTask>();
         this.client = client;

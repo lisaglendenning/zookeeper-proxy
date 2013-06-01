@@ -5,20 +5,26 @@ import java.util.concurrent.ThreadFactory;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 
 import edu.uw.zookeeper.RuntimeModule;
+import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.Connection.CodecFactory;
 import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
-import edu.uw.zookeeper.netty.ChannelConnection;
 import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
-import edu.uw.zookeeper.netty.MonitoredEventLoopGroupFactory;
+import edu.uw.zookeeper.netty.EventLoopGroupService;
+import edu.uw.zookeeper.netty.client.ClientModule;
 import edu.uw.zookeeper.netty.client.NioClientBootstrapFactory;
 import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.server.NioServerBootstrapFactory;
+import edu.uw.zookeeper.netty.server.ServerModule;
+import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
+import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
+import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.Singleton;
 
 public class NettyModule {
@@ -33,41 +39,41 @@ public class NettyModule {
         @Override
         public Singleton<? extends EventLoopGroup> get(RuntimeModule main) {
             ThreadFactory threads = DaemonThreadFactory.getInstance().get(main.threadFactory().get());
-            return MonitoredEventLoopGroupFactory.newInstance(
+            return EventLoopGroupService.factory(
                     NioEventLoopGroupFactory.DEFAULT,
                     main.serviceMonitor()).get(threads);
         }
     }
     
     protected final Singleton<? extends EventLoopGroup> groupFactory;
-    protected final Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory;
-    protected final ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> serverConnectionFactory;
+    protected final ParameterizedFactory<CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection>, Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>>> clientConnectionFactory;
+    protected final ParameterizedFactory<Connection.CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection>, ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>>> serverConnectionFactory;
     
     public NettyModule(RuntimeModule runtime) {
+        final Factory<Publisher> publisherFactory = runtime.publisherFactory();
+        
         // shared eventloopgroup
         this.groupFactory = EventLoopGroupFactory.INSTANCE.get(runtime);
         
-        ParameterizedFactory<Channel, ChannelConnection> connectionBuilder = 
-                ChannelConnection.PerConnectionPublisherFactory.newInstance(runtime.publisherFactory());
-        
         // client
-        Factory<Bootstrap> bootstrapFactory = NioClientBootstrapFactory.newInstance(groupFactory);        
+        final Factory<Bootstrap> bootstrapFactory = 
+                NioClientBootstrapFactory.newInstance(groupFactory);        
         this.clientConnectionFactory = 
-                ChannelClientConnectionFactory.ClientFactoryBuilder.newInstance(runtime.publisherFactory(), connectionBuilder, bootstrapFactory);
+                ClientModule.factory(publisherFactory, bootstrapFactory);
 
         // server
-        ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory = 
+        final ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(groupFactory));
-        this.serverConnectionFactory = ChannelServerConnectionFactory.ParameterizedServerFactoryBuilder.newInstance(
-                runtime.publisherFactory(), connectionBuilder, serverBootstrapFactory);
+        this.serverConnectionFactory = 
+                ServerModule.factory(publisherFactory, serverBootstrapFactory);
     }
 
-    public Factory<? extends ChannelClientConnectionFactory> clientConnectionFactory() {
-        return clientConnectionFactory;
+    public Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>> clientConnectionFactory(CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> codecFactory) {
+        return clientConnectionFactory.get(codecFactory);
     }
 
-    public ParameterizedFactory<SocketAddress, ? extends ChannelServerConnectionFactory> serverConnectionFactory() {
-        return serverConnectionFactory;
+    public ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory(Connection.CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> codecFactory) {
+        return serverConnectionFactory.get(codecFactory);
     }
 }
