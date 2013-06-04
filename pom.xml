@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.uw.zookeeper</groupId>
 	<artifactId>zookeeper-proxy</artifactId>
-	<version>0.3.0-SNAPSHOT</version>
+	<version>0.4.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 	<name>ZooKeeper Proxy</name>
 	<organization>
@@ -65,7 +65,7 @@
         <dependency>
             <groupId>edu.uw.zookeeper</groupId>
             <artifactId>zookeeper-lite</artifactId>
-            <version>0.3.0-SNAPSHOT</version>
+            <version>0.4.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
