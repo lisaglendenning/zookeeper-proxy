@@ -1,9 +1,6 @@
 package edu.uw.zookeeper.proxy;
 
-import java.io.IOException;
-
 import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
 import edu.uw.zookeeper.client.AssignXidProcessor;
@@ -124,12 +121,8 @@ public class ProxyServerExecutor extends ServerExecutor {
     @Override
     protected PublishingSessionRequestExecutor newSessionRequestExecutor(Long sessionId) {
         ClientProtocolExecutor client = clientFactory.get();
-        try {
-            return ProxyRequestExecutor.newInstance(
-                    publisherFactory.get(), this, sessionId, client);
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return ProxyRequestExecutor.newInstance(
+                publisherFactory.get(), this, sessionId, client);
     }
     
     public static class ChrootedProxyServerExecutor extends ProxyServerExecutor {

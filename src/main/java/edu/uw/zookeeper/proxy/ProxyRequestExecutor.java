@@ -1,33 +1,37 @@
 package edu.uw.zookeeper.proxy;
 
-import java.io.IOException;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.Queue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ForwardingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
+import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Processor;
+import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.PromiseTask;
-import edu.uw.zookeeper.util.SettableFuturePromise;
+import edu.uw.zookeeper.util.PublisherActor;
+import edu.uw.zookeeper.util.TaskMailbox;
 
-public class ProxyRequestExecutor extends ServerSessionRequestExecutor implements Runnable {
+public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
 
     public static ProxyRequestExecutor newInstance(
             Publisher publisher,
             ProxyServerExecutor executor,
             long sessionId,
-            ClientProtocolExecutor client) throws IOException {
+            ClientProtocolExecutor client) {
         return new ProxyRequestExecutor(publisher,
                 executor,
                 processor(executor, sessionId),
@@ -35,60 +39,206 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
                 client);
     }
 
-    protected class ProxyRequestTask extends
-            PromiseTask<Operation.SessionRequest, Operation.SessionReply>
-            implements Runnable {
+    protected class SubmitActor extends AbstractActor<PromiseTask<Operation.SessionRequest, Operation.SessionReply>, Void> {
 
-        protected final ListenableFuture<Operation.SessionResult> backend;
-
-        protected ProxyRequestTask(Operation.SessionRequest task) throws Exception {
-            super(task, SettableFuturePromise.<Operation.SessionReply>create());
-            this.backend = client.submit(executor().asRequestProcessor().apply(task.request()));
+        protected SubmitActor() {
+            this(ProxyRequestExecutor.this, 
+                    TaskMailbox.<Operation.SessionReply, PromiseTask<Operation.SessionRequest, Operation.SessionReply>>newQueue(), 
+                    newState());
         }
         
-        public ListenableFuture<Operation.SessionResult> backend() {
-            return backend;
+        protected SubmitActor(Executor executor,
+                Queue<PromiseTask<Operation.SessionRequest, Operation.SessionReply>> mailbox,
+                AtomicReference<edu.uw.zookeeper.util.Actor.State> state) {
+            super(executor, mailbox, state);
+        }
+
+        @Override
+        protected Void apply(PromiseTask<Operation.SessionRequest, Operation.SessionReply> input) throws Exception {
+            // ordering constraint: queue order is the same as submit to backend order
+            if (! input.isDone()) {
+                Operation.Request request = executor().asRequestProcessor().apply(input.task().request());
+                ListenableFuture<Operation.SessionResult> backend = client.submit(request);
+                PendingTask task = new PendingTask(backend, input);
+                pending.send(task);
+            }
+            return null;
+        }
+    }
+
+    protected static class PendingTask extends
+            PromiseTask<ListenableFuture<Operation.SessionResult>, Operation.SessionReply> {
+
+        protected PendingTask(ListenableFuture<Operation.SessionResult> task, PromiseTask<Operation.SessionRequest, Operation.SessionReply> promise) throws Exception {
+            super(task, promise);
         }
         
-        public boolean isRunnable() {
-            return (! isDone() && backend().isDone());
+        public boolean isReady() {
+            return (task().isDone() || isDone());
+        }
+        
+        @SuppressWarnings("unchecked")
+        public Operation.SessionRequest request() {
+            return ((PromiseTask<Operation.SessionRequest, Operation.SessionReply>)delegate).task();
+        }
+    }
+    
+    protected static class PendingQueue extends ForwardingQueue<PendingTask> {
+
+        protected final Queue<PendingTask> delegate;
+
+        protected PendingQueue() {
+            this(AbstractActor.<PendingTask>newQueue());
+        }
+        
+        protected PendingQueue(Queue<PendingTask> delegate) {
+            this.delegate = delegate;
+        }
+        
+        @Override
+        protected Queue<PendingTask> delegate() {
+            return delegate;
+        }
+        
+        @Override
+        public boolean isEmpty() {
+            return peek() != null;
+        }
+        
+        @Override
+        public PendingTask peek() {
+            PendingTask next = super.peek();
+            if ((next != null) && next.isReady()) {
+                return next;
+            } else {
+                return null;
+            }
+        }
+        
+        @Override
+        public synchronized PendingTask poll() {
+            PendingTask next = super.peek();
+            if (next != null) {
+                return super.poll();
+            } else {
+                return null;
+            }
+        }
+        
+        @Override
+        public void clear() {
+            PendingTask next;
+            while ((next = super.poll()) != null) {
+                next.cancel(true);
+            }
+        }
+    }
+    
+    protected class NotificationTask implements Runnable {
+
+        protected final Operation.SessionReply message;
+        
+        protected NotificationTask(Operation.SessionReply message) {
+            this.message = message;
         }
         
         @Override
         public void run() {
-            if (! isRunnable()) {
-                return;
-            }
-            
-            if (backend().isCancelled()) {
-                delegate().cancel(false);
-            } else {
-                try {
-                    Operation.SessionResult result = backend().get();
-                    // Translate backend reply to proxy reply
-                    Operation.SessionRequest request = task();
-                    Operation.SessionReply proxied;
-                    switch (request.request().opcode()) {
-                    case CLOSE_SESSION:
-                        if (result.reply() instanceof Operation.Error) {
-                            proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.reply()));
-                        } else {
-                            proxied = processor.apply(request);
-                        }
-                        break;
-                    default:
-                        proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.reply()));
-                        break;
-                    }
-                    set(proxied);
-                } catch (Exception e) {
-                    setException(e);
-                }
-            }
+
         }
+        
     }
 
-    protected final BlockingQueue<ProxyRequestTask> pending;
+    protected class PendingActor extends AbstractActor<PendingTask, Void> {
+
+        protected PendingActor() {
+            this(ProxyRequestExecutor.this, new PendingQueue(), newState());
+        }
+                
+        protected PendingActor(
+                Executor executor, 
+                PendingQueue mailbox,
+                AtomicReference<State> state) {
+            super(executor, mailbox, state);
+        }
+        
+        @Override
+        public void send(PendingTask task) {
+            super.send(task);
+            task.task().addListener(this, executor);
+        }
+
+        @Override
+        public void run() {
+            if (State.WAITING == state.get()) {
+                schedule();
+            } else {
+                super.run();
+            }
+        }
+        
+        @Subscribe
+        public void handleSessionReply(final Operation.SessionReply message) {
+            // TODO: possible ordering issues here...
+            if ((message.reply() instanceof Operation.Response)
+                    && (OpCode.NOTIFICATION == ((Operation.Response) message.reply()).opcode())) {
+                // flush completed messages
+                schedule();
+                run();
+                
+                // then post notification
+                Operation.SessionReply result;
+                try {
+                    result = executor().asReplyProcessor().apply(Pair.create(Optional.<Operation.SessionRequest>absent(), message));
+                } catch (Exception e) {
+                    // TODO
+                    throw Throwables.propagate(e);
+                }
+                post(result);
+            }
+        }
+        
+        @Override
+        protected Void apply(PendingTask input) throws Exception {
+            if (input.isDone()) {
+                return null;
+            }
+            
+            if (input.task().isCancelled()) {
+                input.cancel(true);
+                return null;
+            }
+            
+            try {
+                Operation.SessionResult result = input.task().get();
+                // Translate backend reply to proxy reply
+                Operation.SessionRequest request = input.request();
+                Operation.SessionReply proxied;
+                switch (request.request().opcode()) {
+                case CLOSE_SESSION:
+                    if (result.reply() instanceof Operation.Error) {
+                        proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.reply()));
+                    } else {
+                        proxied = processor.apply(request);
+                    }
+                    break;
+                default:
+                    proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.reply()));
+                    break;
+                }
+                input.set(proxied);
+            } catch (Exception e) {
+                input.setException(e);
+            }
+            
+            return null;
+        }
+        
+    }
+
+    protected final SubmitActor submitted;
+    protected final PendingActor pending;
+    protected final PublisherActor publish;
     protected final ClientProtocolExecutor client;
 
     protected ProxyRequestExecutor(
@@ -96,11 +246,14 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
             ProxyServerExecutor executor,
             Processor<Operation.SessionRequest, Operation.SessionReply> processor,
             long sessionId,
-            ClientProtocolExecutor client) throws IOException {
+            ClientProtocolExecutor client) {
         super(publisher, executor, processor, sessionId);
-        this.pending = new LinkedBlockingQueue<ProxyRequestTask>();
+        this.pending = new PendingActor();
+        this.submitted = new SubmitActor();
+        this.publish = PublisherActor.newInstance(this, this);
         this.client = client;
-        client.register(this);
+        
+        client.register(pending);
         if (client.state() == ProtocolState.ANONYMOUS) {
             client.connect();
         }
@@ -112,7 +265,8 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
     }
 
     @Override
-    public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request) {
+    public ListenableFuture<Operation.SessionReply> submit(Operation.SessionRequest request,
+            Promise<Operation.SessionReply> promise) {
         switch (request.request().opcode()) {
         case PING:
             // Respond to pings immediately because the ordering doesn't matter
@@ -123,60 +277,9 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor implement
         
         touch();
         
-        ProxyRequestTask task;
-        try {
-            task = enqueueRequest(request);
-        } catch (Exception e) {
-            throw new RejectedExecutionException(e);
-        }
+        PromiseTask<Operation.SessionRequest, Operation.SessionReply> task = PromiseTask.of(request);
+        submitted.send(task);
+        
         return task;
-    }
-    
-    protected synchronized ProxyRequestTask enqueueRequest(Operation.SessionRequest request) throws Exception {
-        // ordering constraint: queue order is the same as submit to backend order
-        ProxyRequestTask task = new ProxyRequestTask(request);
-        pending.add(task);
-        task.backend().addListener(this, executor().executor()); // TODO: or sameThread?
-        return task;
-    }
-
-    @Subscribe
-    public void handleEvent(final Operation.SessionReply message) {
-        if (message.reply() instanceof Operation.Response) {
-            switch (((Operation.Response) message.reply()).opcode()) {
-            case NOTIFICATION:
-                execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Operation.SessionReply result = executor().asReplyProcessor().apply(Pair.create(Optional.<Operation.SessionRequest>absent(), message));
-                            post(result);
-                        } catch (Exception e) {
-                            // TODO
-                            Throwables.propagate(e);
-                        }
-                    }
-                });
-                break;
-            default:
-                break;
-            }
-        }
-    }
-    
-    @Override
-    public synchronized void execute(Runnable runnable) {
-        run(); // flush
-        super.execute(runnable);
-    }
-
-    @Override
-    public synchronized void run() {
-        // ordering constraint: order in pending queue is the same as order executed
-        ProxyRequestTask task = pending.peek();
-        while (task != null && task.isRunnable()) {
-            super.execute(pending.poll());
-            task = pending.peek();
-        }
     }
 }
