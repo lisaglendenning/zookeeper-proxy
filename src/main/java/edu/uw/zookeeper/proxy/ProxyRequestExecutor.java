@@ -270,7 +270,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
         switch (request.request().opcode()) {
         case PING:
             // Respond to pings immediately because the ordering doesn't matter
-            return super.submit(request);
+            return super.submit(request, promise);
         default:
             break;
         }
