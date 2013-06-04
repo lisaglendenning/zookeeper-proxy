@@ -7,6 +7,8 @@
   <loggers>
     <logger name="edu.uw.zookeeper" level="trace">
     </logger>
+    <logger name="io.netty" level="trace">
+    </logger>
   	<root level="error">
       <appender-ref ref="STDOUT"/>
     </root>
