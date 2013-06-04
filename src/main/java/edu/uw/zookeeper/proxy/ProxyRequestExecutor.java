@@ -117,7 +117,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
         
         @Override
         public synchronized PendingTask poll() {
-            PendingTask next = super.peek();
+            PendingTask next = peek();
             if (next != null) {
                 return super.poll();
             } else {
@@ -198,7 +198,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
                 input.cancel(true);
                 return null;
             }
-            
+
             try {
                 Operation.SessionResult result = input.task().get();
                 // Translate backend reply to proxy reply
