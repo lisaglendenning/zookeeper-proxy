@@ -11,10 +11,10 @@ import com.google.common.collect.ForwardingQueue;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.protocol.OpCode;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Pair;
@@ -133,21 +133,6 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
             }
         }
     }
-    
-    protected class NotificationTask implements Runnable {
-
-        protected final Operation.SessionReply message;
-        
-        protected NotificationTask(Operation.SessionReply message) {
-            this.message = message;
-        }
-        
-        @Override
-        public void run() {
-
-        }
-        
-    }
 
     protected class PendingActor extends AbstractActor<PendingTask, Void> {
 
@@ -168,34 +153,39 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
             task.task().addListener(this, executor);
         }
 
-        @Override
-        public void run() {
-            if (State.WAITING == state.get()) {
-                schedule();
-            } else {
-                super.run();
-            }
-        }
-        
         @Subscribe
-        public void handleSessionReply(final Operation.SessionReply message) {
-            // TODO: possible ordering issues here...
-            if ((message.reply() instanceof Operation.Response)
-                    && (OpCode.NOTIFICATION == ((Operation.Response) message.reply()).opcode())) {
-                // flush completed messages
-                schedule();
-                run();
-                
-                // then post notification
-                Operation.SessionReply result;
+        public void handleSessionReply(Operation.SessionReply message) {
+            if (Records.OpCodeXid.NOTIFICATION.xid() == message.xid()) {
                 try {
-                    result = executor().asReplyProcessor().apply(Pair.create(Optional.<Operation.SessionRequest>absent(), message));
+                    flush(message);
                 } catch (Exception e) {
                     // TODO
                     throw Throwables.propagate(e);
                 }
-                post(result);
             }
+        }
+
+        protected synchronized void flush(Operation.SessionReply message) throws Exception {
+            // TODO: possible ordering issues here...
+            // flush completed replies first
+            runAll();
+            Operation.SessionReply result = executor().asReplyProcessor().apply(Pair.create(Optional.<Operation.SessionRequest>absent(), message));
+            post(result);
+        }
+        
+        @Override
+        protected boolean runEnter() {
+            if (State.WAITING == state.get()) {
+                schedule();
+                return false;
+            } else {
+                return super.runEnter();
+            }
+        }
+
+        @Override
+        protected synchronized void runAll() throws Exception {
+            super.runAll();
         }
         
         @Override
@@ -233,7 +223,6 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
             
             return null;
         }
-        
     }
 
     protected final SubmitActor submitted;
