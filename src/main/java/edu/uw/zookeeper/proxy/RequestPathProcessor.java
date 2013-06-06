@@ -3,8 +3,8 @@ package edu.uw.zookeeper.proxy;
 import com.google.common.base.Function;
 
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.proto.IMultiRequest;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
 
 public class RequestPathProcessor implements Processor<Operation.Request, Operation.Request> {

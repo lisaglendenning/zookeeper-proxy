@@ -6,8 +6,8 @@ import java.util.ListIterator;
 import com.google.common.base.Function;
 
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.proto.IMultiResponse;
-import edu.uw.zookeeper.protocol.proto.Records;
 import edu.uw.zookeeper.util.Processor;
 
 public class ResponsePathProcessor implements Processor<Operation.Response, Operation.Response> {

@@ -1,11 +1,14 @@
 package edu.uw.zookeeper.proxy;
 
 
+import java.net.InetSocketAddress;
+
 import com.google.common.base.Optional;
 
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.EnsembleQuorumView;
+import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.client.AssignXidProcessor;
 import edu.uw.zookeeper.client.ClientApplicationModule;
@@ -59,7 +62,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> clientCodecFactory = CodecConnection.factory(clientCodecConnectionFactory);
         ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(netModule.clientConnectionFactory(clientCodecFactory).get());
 
-        EnsembleQuorumView<?> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+        EnsembleQuorumView<InetSocketAddress, ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
         EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, xids, ensemble, timeOut);
         ClientProtocolExecutorsService clients = monitorsFactory.apply(
