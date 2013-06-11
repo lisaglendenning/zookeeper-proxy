@@ -102,7 +102,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
         
         @Override
         public boolean isEmpty() {
-            return peek() != null;
+            return peek() == null;
         }
         
         @Override
