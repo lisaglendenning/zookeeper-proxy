@@ -8,20 +8,13 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
 
 import edu.uw.zookeeper.RuntimeModule;
-import edu.uw.zookeeper.net.Connection;
-import edu.uw.zookeeper.net.Connection.CodecFactory;
-import edu.uw.zookeeper.netty.ChannelClientConnectionFactory;
-import edu.uw.zookeeper.netty.ChannelServerConnectionFactory;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
-import edu.uw.zookeeper.netty.client.ClientModule;
+import edu.uw.zookeeper.netty.client.NettyClientModule;
 import edu.uw.zookeeper.netty.client.NioClientBootstrapFactory;
 import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.server.NioServerBootstrapFactory;
-import edu.uw.zookeeper.netty.server.ServerModule;
-import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
-import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
+import edu.uw.zookeeper.netty.server.NettyServerModule;
 import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
@@ -46,8 +39,8 @@ public class NettyModule {
     }
     
     protected final Singleton<? extends EventLoopGroup> groupFactory;
-    protected final ParameterizedFactory<CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection>, Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>>> clientConnectionFactory;
-    protected final ParameterizedFactory<Connection.CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection>, ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>>> serverConnectionFactory;
+    protected final NettyClientModule nettyClient;
+    protected final NettyServerModule nettyServer;    
     
     public NettyModule(RuntimeModule runtime) {
         final Factory<Publisher> publisherFactory = runtime.publisherFactory();
@@ -58,22 +51,22 @@ public class NettyModule {
         // client
         final Factory<Bootstrap> bootstrapFactory = 
                 NioClientBootstrapFactory.newInstance(groupFactory);        
-        this.clientConnectionFactory = 
-                ClientModule.factory(publisherFactory, bootstrapFactory);
+        this.nettyClient = 
+                NettyClientModule.newInstance(publisherFactory, bootstrapFactory);
 
         // server
         final ParameterizedFactory<SocketAddress, ServerBootstrap> serverBootstrapFactory = 
                 NioServerBootstrapFactory.ParameterizedDecorator.newInstance(
                         NioServerBootstrapFactory.newInstance(groupFactory));
-        this.serverConnectionFactory = 
-                ServerModule.factory(publisherFactory, serverBootstrapFactory);
+        this.nettyServer = 
+                NettyServerModule.newInstance(publisherFactory, serverBootstrapFactory);
     }
 
-    public Factory<ChannelClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection>> clientConnectionFactory(CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> codecFactory) {
-        return clientConnectionFactory.get(codecFactory);
+    public NettyClientModule clients() {
+        return nettyClient;
     }
 
-    public ParameterizedFactory<SocketAddress, ChannelServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory(Connection.CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> codecFactory) {
-        return serverConnectionFactory.get(codecFactory);
+    public NettyServerModule servers() {
+        return nettyServer;
     }
 }

@@ -28,7 +28,7 @@ import edu.uw.zookeeper.server.AssignZxidProcessor;
 import edu.uw.zookeeper.server.DefaultSessionParametersPolicy;
 import edu.uw.zookeeper.server.ExpireSessionsTask;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
-import edu.uw.zookeeper.server.Server;
+import edu.uw.zookeeper.server.ServerConnectionListener;
 import edu.uw.zookeeper.server.ServerApplicationModule;
 import edu.uw.zookeeper.server.SessionParametersPolicy;
 import edu.uw.zookeeper.util.Application;
@@ -60,7 +60,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection> clientCodecConnectionFactory = 
                 PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
         CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> clientCodecFactory = CodecConnection.factory(clientCodecConnectionFactory);
-        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(netModule.clientConnectionFactory(clientCodecFactory).get());
+        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(netModule.clients().get(clientCodecFactory).get());
 
         EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
@@ -73,7 +73,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                 ServerCodecConnection.factory(runtime.publisherFactory());
         CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> serverCodecFactory = CodecConnection.factory(serverCodecConnectionFactory);
         ServerView.Address<?> address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(netModule.serverConnectionFactory(serverCodecFactory).get(address.get()));
+        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(netModule.servers().get(serverCodecFactory).get(address.get()));
         SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
         ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
@@ -90,7 +90,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                         runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids, clients)
                 : ProxyServerExecutor.ChrootedProxyServerExecutor.newInstance(
                         runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids, clients, chroot);
-        final Server server = Server.newInstance(runtime.publisherFactory(), serverConnections, serverExecutor);
+        final ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
