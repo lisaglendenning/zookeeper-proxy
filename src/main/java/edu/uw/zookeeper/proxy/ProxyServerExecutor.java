@@ -6,7 +6,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import edu.uw.zookeeper.client.AssignXidProcessor;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.protocol.Operation;
-import edu.uw.zookeeper.protocol.SessionReplyWrapper;
+import edu.uw.zookeeper.protocol.SessionReplyMessage;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
 import edu.uw.zookeeper.server.AssignZxidProcessor;
 import edu.uw.zookeeper.server.ExpiringSessionManager;
@@ -79,9 +79,9 @@ public class ProxyServerExecutor extends ServerExecutor {
                 xid = reply.xid();
             }
             
-            Operation.Reply payload = reply.reply();
+            Operation.Response payload = reply.reply();
             Long zxid = zxids.apply(payload);
-            return SessionReplyWrapper.create(xid, zxid, payload);
+            return SessionReplyMessage.newInstance(xid, zxid, payload);
         }
     }
 
@@ -196,12 +196,9 @@ public class ProxyServerExecutor extends ServerExecutor {
                     xid = reply.xid();
                 }
                 
-                Operation.Reply payload = reply.reply();
-                if (payload instanceof Operation.Response) {
-                    payload = chroots.apply((Operation.Response)payload);
-                }
+                Operation.Response payload = chroots.apply(reply.reply());
                 Long zxid = zxids.apply(payload);
-                return SessionReplyWrapper.create(xid, zxid, payload);
+                return SessionReplyMessage.newInstance(xid, zxid, payload);
             }
         }
         

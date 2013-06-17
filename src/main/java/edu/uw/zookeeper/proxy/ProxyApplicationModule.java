@@ -2,6 +2,7 @@ package edu.uw.zookeeper.proxy;
 
 
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
 import com.google.common.base.Optional;
 
@@ -16,10 +17,7 @@ import edu.uw.zookeeper.client.ClientProtocolExecutorsService;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.data.ZNodeLabel;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
-import edu.uw.zookeeper.net.Connection.CodecFactory;
-import edu.uw.zookeeper.protocol.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.PingingClientCodecConnection;
 import edu.uw.zookeeper.protocol.server.ServerCodecConnection;
@@ -57,10 +55,11 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         
         // Client
         TimeValue timeOut = ClientApplicationModule.TimeoutFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<Connection<Message.ClientSessionMessage>, PingingClientCodecConnection> clientCodecConnectionFactory = 
-                PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
-        CodecFactory<Message.ClientSessionMessage, Message.ServerSessionMessage, PingingClientCodecConnection> clientCodecFactory = CodecConnection.factory(clientCodecConnectionFactory);
-        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = monitorsFactory.apply(netModule.clients().get(clientCodecFactory).get());
+        ClientConnectionFactory<Message.ClientSessionMessage, PingingClientCodecConnection> clientConnections = 
+                monitorsFactory.apply(
+                    netModule.clients().get(
+                            PingingClientCodecConnection.codecFactory(), 
+                            PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get())).get());
 
         EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
@@ -69,11 +68,13 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                 ClientProtocolExecutorsService.newInstance(ensembleFactory));
         
         // Server
-        ParameterizedFactory<Connection<Message.ServerMessage>, ServerCodecConnection> serverCodecConnectionFactory = 
-                ServerCodecConnection.factory(runtime.publisherFactory());
-        CodecFactory<Message.ServerMessage, Message.ClientMessage, ServerCodecConnection> serverCodecFactory = CodecConnection.factory(serverCodecConnectionFactory);
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection>> serverConnectionFactory = 
+                netModule.servers().get(
+                        ServerCodecConnection.codecFactory(),
+                        ServerCodecConnection.factory());
         ServerView.Address<?> address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = monitorsFactory.apply(netModule.servers().get(serverCodecFactory).get(address.get()));
+        ServerConnectionFactory<Message.ServerMessage, ServerCodecConnection> serverConnections = 
+                monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
         ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));

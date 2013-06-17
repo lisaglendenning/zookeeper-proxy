@@ -13,8 +13,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolState;
-import edu.uw.zookeeper.protocol.Records;
 import edu.uw.zookeeper.protocol.client.ClientProtocolExecutor;
+import edu.uw.zookeeper.protocol.proto.OpCodeXid;
 import edu.uw.zookeeper.server.ServerSessionRequestExecutor;
 import edu.uw.zookeeper.util.AbstractActor;
 import edu.uw.zookeeper.util.Pair;
@@ -155,7 +155,7 @@ public class ProxyRequestExecutor extends ServerSessionRequestExecutor {
 
         @Subscribe
         public void handleSessionReply(Operation.SessionReply message) {
-            if (Records.OpCodeXid.NOTIFICATION.xid() == message.xid()) {
+            if (OpCodeXid.NOTIFICATION.xid() == message.xid()) {
                 try {
                     flush(message);
                 } catch (Exception e) {

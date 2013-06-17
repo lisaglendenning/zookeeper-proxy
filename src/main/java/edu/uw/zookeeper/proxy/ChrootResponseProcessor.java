@@ -11,35 +11,35 @@ public class ChrootResponseProcessor extends ResponsePathProcessor implements Re
         return new ChrootResponseProcessor(chroot);
     }
 
-    public static class UnchrootPath implements Function<String, String> {
+    public static class UnchrootPath implements Function<ZNodeLabel.Path, ZNodeLabel.Path> {
 
-        private final String chroot;
+        private final ZNodeLabel.Path chroot;
         
-        public UnchrootPath(String chroot) {
+        public UnchrootPath(ZNodeLabel.Path chroot) {
             super();
             this.chroot = chroot;
         }
 
         @Override
-        public String apply(String input) {
-            if (ZNodeLabel.Path.SLASH != input.charAt(0)) {
+        public ZNodeLabel.Path apply(ZNodeLabel.Path input) {
+            if (! input.isAbsolute()) {
                 return input;
             }
-            int chrootLength = chroot.length();
-            if (input.length() < chrootLength) {
-                throw new IllegalArgumentException();
+            if (! chroot.prefixOf(input)) {
+                throw new IllegalArgumentException(input.toString());
             }
-            String chrootedPath = (input.length() == chrootLength)
-                    ? ZNodeLabel.Path.root().toString()
-                            : input.substring(chrootLength);
-            return chrootedPath;
+            if (chroot.equals(input)) {
+                return ZNodeLabel.Path.root();
+            } else {
+                return ZNodeLabel.Path.of(input.toString().substring(chroot.length()));
+            }
         }
     }
     
     protected final ZNodeLabel.Path chroot;
     
     protected ChrootResponseProcessor(ZNodeLabel.Path chroot) {
-        super(new UnchrootPath(chroot.toString()));
+        super(new UnchrootPath(chroot));
         this.chroot = chroot;
     }
     

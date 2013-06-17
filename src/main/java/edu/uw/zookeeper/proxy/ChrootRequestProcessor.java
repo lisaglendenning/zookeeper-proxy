@@ -11,27 +11,27 @@ public class ChrootRequestProcessor extends RequestPathProcessor implements Refe
         return new ChrootRequestProcessor(chroot);
     }
 
-    public static class ChrootPath implements Function<String, String> {
+    public static class ChrootPath implements Function<ZNodeLabel.Path, ZNodeLabel.Path> {
 
-        private final String chroot;
+        private final ZNodeLabel.Path chroot;
         
-        public ChrootPath(String chroot) {
+        public ChrootPath(ZNodeLabel.Path chroot) {
             this.chroot = chroot;
         }
         
         @Override
-        public String apply(String input) {
-            if (ZNodeLabel.SLASH != input.charAt(0)) {
+        public ZNodeLabel.Path apply(ZNodeLabel.Path input) {
+            if (! input.isAbsolute()) {
                 return input;
             }
-            return (input.length() > 1) ? chroot + input : chroot;
+            return (input.isRoot()) ? chroot: ZNodeLabel.Path.of(chroot, input);
         }
     }
     
     protected final ZNodeLabel.Path chroot;
     
     protected ChrootRequestProcessor(ZNodeLabel.Path chroot) {
-        super(new ChrootPath(chroot.toString()));
+        super(new ChrootPath(chroot));
         this.chroot = chroot;
     }
     
