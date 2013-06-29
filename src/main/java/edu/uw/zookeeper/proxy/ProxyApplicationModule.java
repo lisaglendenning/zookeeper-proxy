@@ -1,14 +1,13 @@
 package edu.uw.zookeeper.proxy;
 
 
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
 import com.google.common.base.Optional;
 
 import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
-import edu.uw.zookeeper.EnsembleRoleView;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.client.AssignXidProcessor;
@@ -61,9 +60,8 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                             PingingClientCodecConnection.codecFactory(), 
                             PingingClientCodecConnection.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get())).get());
 
-        EnsembleRoleView<InetSocketAddress, ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
-        AssignXidProcessor xids = AssignXidProcessor.newInstance();
-        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, xids, ensemble, timeOut);
+        EnsembleView<ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+        EnsembleViewFactory ensembleFactory = EnsembleViewFactory.newInstance(clientConnections, AssignXidProcessor.factory(), ensemble, timeOut);
         ClientProtocolExecutorsService clients = monitorsFactory.apply(
                 ClientProtocolExecutorsService.newInstance(ensembleFactory));
         
@@ -78,7 +76,8 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
         ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
-        final AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
+        AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
+        AssignXidProcessor xids = AssignXidProcessor.newInstance();
         
         Arguments arguments = runtime.configuration().asArguments();
         if (! arguments.has(CHROOT_ARG)) {
@@ -86,12 +85,12 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         }
         arguments.parse();
         ZNodeLabel.Path chroot = ZNodeLabel.Path.of(arguments.getValue(CHROOT_ARG));
-        final ProxyServerExecutor serverExecutor = EMPTY_CHROOT.equals(chroot)
+        ProxyServerExecutor serverExecutor = EMPTY_CHROOT.equals(chroot)
                 ? ProxyServerExecutor.newInstance(
                         runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids, clients)
                 : ProxyServerExecutor.ChrootedProxyServerExecutor.newInstance(
-                        runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids, clients, chroot);
-        final ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
+                        runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids.newInstance(), clients, chroot);
+        ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
