@@ -9,7 +9,6 @@ import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.client.AssignXidProcessor;
 import edu.uw.zookeeper.client.ClientApplicationModule;
 import edu.uw.zookeeper.client.ClientConnectionExecutorsService;
@@ -21,9 +20,7 @@ import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.Operation.Request;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.PingingClient;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.proxy.netty.NettyModule;
@@ -36,7 +33,6 @@ import edu.uw.zookeeper.server.ServerApplicationModule;
 import edu.uw.zookeeper.server.SessionParametersPolicy;
 import edu.uw.zookeeper.util.Application;
 import edu.uw.zookeeper.util.Arguments;
-import edu.uw.zookeeper.util.Factory;
 import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.ParameterizedFactory;
 import edu.uw.zookeeper.util.Publisher;
@@ -86,7 +82,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         SessionParametersPolicy policy = DefaultSessionParametersPolicy.create(runtime.configuration());
         ExpiringSessionManager sessions = ExpiringSessionManager.newInstance(runtime.publisherFactory().get(), policy);
-        ExpireSessionsTask expires = monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
+        monitorsFactory.apply(ExpireSessionsTask.newInstance(sessions, runtime.executors().asScheduledExecutorServiceFactory().get(), runtime.configuration()));
         AssignZxidProcessor zxids = AssignZxidProcessor.newInstance();
         AssignXidProcessor xids = AssignXidProcessor.newInstance();
         
@@ -99,9 +95,9 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         ProxyServerExecutor<PingingClient<Operation.Request, AssignXidCodec, Connection<Operation.Request>>> serverExecutor = EMPTY_CHROOT.equals(chroot)
                 ? ProxyServerExecutor.newInstance(
                         runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids, clients)
-                : ChrootedProxyServerExecutor.newInstance(
+                : ChrootProxyServerExecutor.newInstance(
                         runtime.executors().asListeningExecutorServiceFactory().get(), runtime.publisherFactory(), sessions, zxids, xids, clients, chroot);
-        ServerConnectionListener server = ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
+        ServerConnectionListener.newInstance(serverConnections, serverExecutor, serverExecutor, serverExecutor);
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }

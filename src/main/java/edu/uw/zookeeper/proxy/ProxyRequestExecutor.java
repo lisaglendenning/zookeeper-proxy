@@ -1,10 +1,6 @@
 package edu.uw.zookeeper.proxy;
 
 import java.util.Queue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
-
-
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ForwardingQueue;
@@ -13,6 +9,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Message.ClientRequest;
+import edu.uw.zookeeper.protocol.Message.ServerResponse;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.proto.OpCodeXid;
@@ -24,8 +22,6 @@ import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Promise;
 import edu.uw.zookeeper.util.Publisher;
 import edu.uw.zookeeper.util.PromiseTask;
-import edu.uw.zookeeper.util.PublisherActor;
-import edu.uw.zookeeper.util.TaskMailbox;
 
 public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSession>> extends ServerSessionRequestExecutor {
 
@@ -40,32 +36,54 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
                 sessionId,
                 client);
     }
+    
+    protected class SubmitQueue extends ForwardingQueue<PromiseTask<Message.ClientRequest, Message.ServerResponse>> {
 
-    protected class SubmitActor extends AbstractActor<PromiseTask<Message.ClientRequest, Message.ServerResponse>, Void> {
-
-        protected SubmitActor() {
-            super(ProxyRequestExecutor.this, 
-                    TaskMailbox.<Message.ServerResponse, PromiseTask<Message.ClientRequest, Message.ServerResponse>>newQueue(), 
-                    newState());
+        protected final Queue<PromiseTask<ClientRequest, ServerResponse>> delegate;
+        
+        public SubmitQueue() {
+            this.delegate = AbstractActor.newQueue();
         }
         
         @Override
-        protected Void apply(PromiseTask<Message.ClientRequest, Message.ServerResponse> input) throws Exception {
+        protected Queue<PromiseTask<ClientRequest, ServerResponse>> delegate() {
+            return delegate;
+        }
+        
+        @Override
+        public void clear() {
+            PromiseTask<ClientRequest, ServerResponse> next = null;
+            while ((next = poll()) != null) {
+                if (! next.isDone()) {
+                    next.cancel(true);
+                }
+            }
+        }
+    }
+
+    protected class SubmitActor extends AbstractActor<PromiseTask<Message.ClientRequest, Message.ServerResponse>> {
+
+        public SubmitActor() {
+            super(ProxyRequestExecutor.this, new SubmitQueue(), newState());
+        }
+        
+        @Override
+        protected boolean apply(PromiseTask<Message.ClientRequest, Message.ServerResponse> input) throws Exception {
             // ordering constraint: queue order is the same as submit to backend order
             if (! input.isDone()) {
                 Records.Request request = executor().asRequestProcessor().apply(input.task().request());
-                ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> backend = client.submit(request);
+                ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> backend = client.submit(request);
                 PendingTask task = new PendingTask(backend, input);
                 pending.send(task);
             }
-            return null;
+            return true;
         }
     }
 
     protected static class PendingTask extends
-            PromiseTask<ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>>, Message.ServerResponse> {
+            PromiseTask<ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>>, Message.ServerResponse> {
 
-        protected PendingTask(ListenableFuture<Pair<Message.ClientRequest, Message.ServerResponse>> task, PromiseTask<Message.ClientRequest, Message.ServerResponse> promise) throws Exception {
+        public PendingTask(ListenableFuture<Pair<Operation.SessionRequest, Operation.SessionResponse>> task, PromiseTask<Message.ClientRequest, Message.ServerResponse> promise) throws Exception {
             super(task, promise);
         }
         
@@ -83,7 +101,7 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
 
         protected final Queue<PendingTask> delegate;
 
-        protected PendingQueue() {
+        public PendingQueue() {
             this(AbstractActor.<PendingTask>newQueue());
         }
         
@@ -130,17 +148,10 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
         }
     }
 
-    protected class PendingActor extends AbstractActor<PendingTask, Void> {
+    protected class PendingActor extends AbstractActor<PendingTask> {
 
-        protected PendingActor() {
-            this(ProxyRequestExecutor.this, new PendingQueue(), newState());
-        }
-                
-        protected PendingActor(
-                Executor executor, 
-                PendingQueue mailbox,
-                AtomicReference<State> state) {
-            super(executor, mailbox, state);
+        public PendingActor() {
+            super(ProxyRequestExecutor.this, new PendingQueue(), newState());
         }
         
         @Override
@@ -164,7 +175,7 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
         protected synchronized void flush(Message.ServerResponse message) throws Exception {
             // TODO: possible ordering issues here...
             // flush completed replies first
-            runAll();
+            doRun();
             Message.ServerResponse result = executor().asReplyProcessor().apply(Pair.create(Optional.<Message.ClientRequest>absent(), message));
             post(result);
         }
@@ -180,36 +191,36 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
         }
 
         @Override
-        protected synchronized void runAll() throws Exception {
-            super.runAll();
+        protected synchronized void doRun() throws Exception {
+            super.doRun();
         }
         
         @Override
-        protected Void apply(PendingTask input) throws Exception {
+        protected boolean apply(PendingTask input) throws Exception {
             if (input.isDone()) {
-                return null;
+                return true;
             }
             
             if (input.task().isCancelled()) {
                 input.cancel(true);
-                return null;
+                return true;
             }
 
             try {
-                Pair<Message.ClientRequest, Message.ServerResponse> result = input.task().get();
+                Pair<Operation.SessionRequest, Operation.SessionResponse> result = input.task().get();
                 // Translate backend reply to proxy reply
                 Message.ClientRequest request = input.request();
                 Message.ServerResponse proxied;
                 switch (request.request().opcode()) {
                 case CLOSE_SESSION:
                     if (result.second() instanceof Operation.Error) {
-                        proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.second()));
+                        proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), (Message.ServerResponse) result.second()));
                     } else {
                         proxied = processor.apply(request);
                     }
                     break;
                 default:
-                    proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), result.second()));
+                    proxied = executor().asReplyProcessor().apply(Pair.create(Optional.of(request), (Message.ServerResponse) result.second()));
                     break;
                 }
                 input.set(proxied);
@@ -217,13 +228,12 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
                 input.setException(e);
             }
             
-            return null;
+            return true;
         }
     }
 
     protected final SubmitActor submitted;
     protected final PendingActor pending;
-    protected final PublisherActor publish;
     protected final ClientConnectionExecutor<C> client;
 
     protected ProxyRequestExecutor(
@@ -235,7 +245,6 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
         super(publisher, executor, processor, sessionId);
         this.pending = new PendingActor();
         this.submitted = new SubmitActor();
-        this.publish = PublisherActor.newInstance(this, this);
         this.client = client;
         
         client.register(pending);

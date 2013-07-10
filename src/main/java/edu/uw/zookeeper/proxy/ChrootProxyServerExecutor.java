@@ -17,9 +17,9 @@ import edu.uw.zookeeper.util.Pair;
 import edu.uw.zookeeper.util.Processor;
 import edu.uw.zookeeper.util.Publisher;
 
-public class ChrootedProxyServerExecutor<C extends Connection<? super Message.ClientSession>> extends ProxyServerExecutor<C> {
+public class ChrootProxyServerExecutor<C extends Connection<? super Message.ClientSession>> extends ProxyServerExecutor<C> {
 
-    public static <C extends Connection<? super Message.ClientSession>> ChrootedProxyServerExecutor<C> newInstance(
+    public static <C extends Connection<? super Message.ClientSession>> ChrootProxyServerExecutor<C> newInstance(
             ListeningExecutorService executor,
             Factory<Publisher> publisherFactory,
             ExpiringSessionManager sessions,
@@ -37,7 +37,7 @@ public class ChrootedProxyServerExecutor<C extends Connection<? super Message.Cl
                 chroot);
     }
     
-    public static <C extends Connection<? super Message.ClientSession>> ChrootedProxyServerExecutor<C> newInstance(
+    public static <C extends Connection<? super Message.ClientSession>> ChrootProxyServerExecutor<C> newInstance(
             ListeningExecutorService executor,
             Factory<Publisher> publisherFactory,
             ExpiringSessionManager sessions,
@@ -45,7 +45,7 @@ public class ChrootedProxyServerExecutor<C extends Connection<? super Message.Cl
             AssignXidProcessor xids,
             Factory<ClientConnectionExecutor<C>> clientFactory,
             ZNodeLabel.Path chroot) {
-        return new ChrootedProxyServerExecutor<C>(
+        return new ChrootProxyServerExecutor<C>(
                 executor,
                 publisherFactory,
                 sessions,
@@ -59,7 +59,7 @@ public class ChrootedProxyServerExecutor<C extends Connection<? super Message.Cl
 
     public static class ChrootedProxyReplyProcessor extends ProxyReplyProcessor {
 
-        public static ChrootedProxyServerExecutor.ChrootedProxyReplyProcessor newInstance(
+        public static ChrootProxyServerExecutor.ChrootedProxyReplyProcessor newInstance(
                 AssignZxidProcessor zxids,
                 ZNodeLabel.Path chroot) {
             return new ChrootedProxyReplyProcessor(
@@ -96,7 +96,7 @@ public class ChrootedProxyServerExecutor<C extends Connection<? super Message.Cl
     
     protected final ZNodeLabel.Path chroot;
     
-    protected ChrootedProxyServerExecutor(
+    protected ChrootProxyServerExecutor(
             ListeningExecutorService executor,
             Factory<Publisher> publisherFactory,
             ExpiringSessionManager sessions, 
