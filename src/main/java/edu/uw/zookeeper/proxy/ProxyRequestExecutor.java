@@ -10,7 +10,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.proto.Records;
@@ -19,7 +18,7 @@ import edu.uw.zookeeper.util.TaskExecutor;
 
 public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSession>> 
         implements TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>,
-        Function<Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>>, Message.ServerResponse<Records.Response>> {
+        Function<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>, Message.ServerResponse<Records.Response>> {
 
     public static <C extends Connection<? super Message.ClientSession>> ProxyRequestExecutor<C> newInstance(
             Map<Long, ClientConnectionExecutor<C>> clients) {
@@ -43,7 +42,7 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
     @SuppressWarnings("unchecked")
     @Override
     public @Nullable Message.ServerResponse<Records.Response> apply(
-            @Nullable Pair<Operation.ProtocolRequest<?>, Message.ServerResponse<?>> input) {
+            @Nullable Pair<Message.ClientRequest<?>, Message.ServerResponse<?>> input) {
         return (input == null) ? null : (Message.ServerResponse<Records.Response>) input.second();
     }
 }
