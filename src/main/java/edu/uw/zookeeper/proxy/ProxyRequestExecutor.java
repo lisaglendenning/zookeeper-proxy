@@ -18,7 +18,7 @@ import edu.uw.zookeeper.util.TaskExecutor;
 
 public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSession>> 
         implements TaskExecutor<SessionOperation.Request<Records.Request>, Message.ServerResponse<Records.Response>>,
-        Function<Pair<Message.ClientRequest<?>, Message.ServerResponse<?>>, Message.ServerResponse<Records.Response>> {
+        Function<Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>>, Message.ServerResponse<Records.Response>> {
 
     public static <C extends Connection<? super Message.ClientSession>> ProxyRequestExecutor<C> newInstance(
             Map<Long, ClientConnectionExecutor<C>> clients) {
@@ -39,10 +39,9 @@ public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSes
         return Futures.transform(client.submit(request), this);
     }
     
-    @SuppressWarnings("unchecked")
     @Override
     public @Nullable Message.ServerResponse<Records.Response> apply(
-            @Nullable Pair<Message.ClientRequest<?>, Message.ServerResponse<?>> input) {
-        return (input == null) ? null : (Message.ServerResponse<Records.Response>) input.second();
+            @Nullable Pair<Message.ClientRequest<Records.Request>, Message.ServerResponse<Records.Response>> input) {
+        return (input == null) ? null : input.second();
     }
 }
