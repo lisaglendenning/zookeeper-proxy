@@ -132,8 +132,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
         ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
-        ServerConnectionExecutorsService<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> server = 
-                monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
+        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
