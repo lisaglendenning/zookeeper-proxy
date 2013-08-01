@@ -53,14 +53,14 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
     public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements ParameterizedFactory<V, ServerViewFactory<ConnectMessage.Request, V, C>> {
 
         public static <V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactories<V,C> newInstance(
-                ClientConnectionFactory<?,C> connections) {
+                ClientConnectionFactory<C> connections) {
             return new ServerViewFactories<V,C>(connections);
         }
         
-        protected final ClientConnectionFactory<?, C> connections;
+        protected final ClientConnectionFactory<C> connections;
         
         protected ServerViewFactories(
-                ClientConnectionFactory<?, C> connections) {
+                ClientConnectionFactory<C> connections) {
             this.connections = connections;
         }
 
@@ -105,7 +105,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                     }
         };
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
-        ClientConnectionFactory<Operation.Request, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
+        ClientConnectionFactory<ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
                 monitorsFactory.apply(
                     netModule.clients().get(
                             codecFactory, clientConnectionFactory).get());
@@ -125,12 +125,12 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                 ensembleFactory);
         
         // Server
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
+        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
                 netModule.servers().get(
                         ServerApplicationModule.codecFactory(),
                         ServerApplicationModule.connectionFactory());
         ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
-        ServerConnectionFactory<Message.Server, ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
+        ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
         monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
 
