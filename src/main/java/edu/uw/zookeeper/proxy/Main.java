@@ -2,8 +2,8 @@ package edu.uw.zookeeper.proxy;
 
 
 import edu.uw.zookeeper.AbstractMain;
-import edu.uw.zookeeper.util.ConfigurableMain;
-import edu.uw.zookeeper.util.Configuration;
+import edu.uw.zookeeper.common.ConfigurableMain;
+import edu.uw.zookeeper.common.Configuration;
 
 public class Main extends AbstractMain {
 

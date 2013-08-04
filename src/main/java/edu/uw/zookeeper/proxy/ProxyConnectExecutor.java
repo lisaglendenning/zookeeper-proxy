@@ -12,17 +12,17 @@ import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
+import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Pair;
+import edu.uw.zookeeper.common.Promise;
+import edu.uw.zookeeper.common.Publisher;
+import edu.uw.zookeeper.common.SettableFuturePromise;
+import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.ConnectMessage.Response;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
-import edu.uw.zookeeper.util.Automaton;
-import edu.uw.zookeeper.util.Pair;
-import edu.uw.zookeeper.util.Promise;
-import edu.uw.zookeeper.util.Publisher;
-import edu.uw.zookeeper.util.SettableFuturePromise;
-import edu.uw.zookeeper.util.TaskExecutor;
 
 public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> {
 
