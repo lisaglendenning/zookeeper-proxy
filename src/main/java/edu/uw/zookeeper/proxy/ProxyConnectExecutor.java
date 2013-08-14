@@ -4,8 +4,9 @@ import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
+import com.google.common.base.Function;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -14,13 +15,10 @@ import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
 import edu.uw.zookeeper.common.Automaton;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.Promise;
 import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.SettableFuturePromise;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.ConnectMessage.Response;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
@@ -52,77 +50,58 @@ public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketA
     
     @Override
     public ListenableFuture<ConnectMessage.Response> submit(Pair<ConnectMessage.Request, Publisher> request) {
-        Promise<ConnectMessage.Response> promise = SettableFuturePromise.create();
-        executor.execute(new ConnectionTask(executor, request, promise));
-        return promise;
+        return Futures.transform(
+                clientFactory.get().get(request.first()),
+                new ConnectTask(request.second()));
     }
 
-    protected class ConnectionTask implements Runnable {
+    protected class ConnectTask implements AsyncFunction<ClientConnectionExecutor<C>, ConnectMessage.Response> {
         
-        protected final Executor executor;
-        protected final Pair<ConnectMessage.Request, Publisher> request;
-        protected final Promise<ConnectMessage.Response> promise;
+        protected final Publisher listener;
 
-        public ConnectionTask(Executor executor,
-                Pair<ConnectMessage.Request, Publisher> request, Promise<Response> promise) {
+        public ConnectTask(Publisher listener) {
             super();
-            this.executor = executor;
-            this.request = request;
-            this.promise = promise;
+            this.listener = listener;
         }
 
         @Override
-        public void run() {
-            try {
-                ClientConnectionExecutor<C> client = clientFactory.get().get(request.first());
-                Futures.addCallback(
-                        client.session(), 
-                        new ConnectedTask(request, client, promise), executor);
-            } catch (Throwable t) {
-                promise.setException(t);
-            }
+        public ListenableFuture<ConnectMessage.Response> apply(
+                ClientConnectionExecutor<C> input) throws Exception {
+            return Futures.transform(input.session(), new ConnectedTask(input, listener));
         }
-        
     }
     
-    protected class ConnectedTask implements FutureCallback<ConnectMessage.Response> {
+    protected class ConnectedTask implements Function<ConnectMessage.Response, ConnectMessage.Response> {
 
-        protected final Pair<ConnectMessage.Request, Publisher> request;
+        protected final Publisher listener;
         protected final ClientConnectionExecutor<C> client;
-        protected final Promise<ConnectMessage.Response> promise;
         
         public ConnectedTask(
-                Pair<ConnectMessage.Request, Publisher> request,
                 ClientConnectionExecutor<C> client,
-                Promise<ConnectMessage.Response> promise) {
-            this.request = request;
+                Publisher listener) {
+            this.listener = listener;
             this.client = client;
-            this.promise = promise;
         }
-        
+
         @Override
-        public void onSuccess(ConnectMessage.Response response) {
-            Publisher publisher = request.second();
-            if (response instanceof ConnectMessage.Response.Valid) {
-                Long sessionId = response.getSessionId();
-                Publisher prevPublisher = listeners.put(sessionId, publisher);
+        public ConnectMessage.Response apply(
+                ConnectMessage.Response input) {
+            if (input instanceof ConnectMessage.Response.Valid) {
+                Long sessionId = input.getSessionId();
+                Publisher prevPublisher = listeners.put(sessionId, listener);
                 if (prevPublisher != null) {
                     // TODO
+                    throw new UnsupportedOperationException();
                 }
                 ClientConnectionExecutor<C> prevClient = clients.put(sessionId, client);
                 if (prevClient != null) {
                     // TODO
+                    throw new UnsupportedOperationException();
                 }
                 
-                new ConnectionListener(sessionId, publisher, client);
+                new ConnectionListener(sessionId, listener, client);
             }
-            publisher.post(response);
-            promise.set(response);
-        }
-
-        @Override
-        public void onFailure(Throwable t) {
-            promise.setException(t);
+            return input;
         }
     }
     
