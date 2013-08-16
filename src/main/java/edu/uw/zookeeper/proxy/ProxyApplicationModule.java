@@ -6,7 +6,7 @@ import java.util.concurrent.Executor;
 
 import com.google.common.collect.MapMaker;
 
-import edu.uw.zookeeper.AbstractMain;
+import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -90,7 +90,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
     @Override
     public Application get(RuntimeModule runtime) {
         ServiceMonitor monitor = runtime.serviceMonitor();
-        AbstractMain.MonitorServiceFactory monitorsFactory = AbstractMain.monitors(monitor);
+        DefaultMain.MonitorServiceFactory monitorsFactory = DefaultMain.monitors(monitor);
 
         NettyModule netModule = NettyModule.newInstance(runtime);
         

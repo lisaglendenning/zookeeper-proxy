@@ -42,7 +42,7 @@ public class NettyModule {
     protected final NettyServerModule nettyServer;    
     
     public NettyModule(RuntimeModule runtime) {
-        final Factory<Publisher> publisherFactory = runtime.publisherFactory();
+        final Factory<? extends Publisher> publisherFactory = runtime.publisherFactory();
         
         // shared eventloopgroup
         this.groupFactory = EventLoopGroupFactory.INSTANCE.get(runtime);
