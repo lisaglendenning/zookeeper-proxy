@@ -107,7 +107,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                 PingingClient.factory(timeOut, runtime.executors().asScheduledExecutorServiceFactory().get());
         ClientConnectionFactory<ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
                 monitorsFactory.apply(
-                    netModule.clients().get(
+                    netModule.clients().getClientConnectionFactory(
                             codecFactory, clientConnectionFactory).get());
         ServerViewFactories<ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> serverFactory = 
                 ServerViewFactories.newInstance(clientConnections);
@@ -126,7 +126,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         
         // Server
         ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
-                netModule.servers().get(
+                netModule.servers().getServerConnectionFactory(
                         ServerApplicationModule.codecFactory(),
                         ServerApplicationModule.connectionFactory());
         ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
