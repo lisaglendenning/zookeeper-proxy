@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 import com.google.common.collect.MapMaker;
+
 import edu.uw.zookeeper.AbstractMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
@@ -12,8 +13,8 @@ import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
 import edu.uw.zookeeper.client.ClientApplicationModule;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
+import edu.uw.zookeeper.client.FixedClientConnectionFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
-import edu.uw.zookeeper.client.ServerViewFactory.FixedClientConnectionFactory;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;

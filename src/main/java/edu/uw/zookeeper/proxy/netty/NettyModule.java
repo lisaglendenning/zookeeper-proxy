@@ -6,12 +6,11 @@ import java.util.concurrent.ThreadFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
-
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
-import edu.uw.zookeeper.common.Singleton;
+import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
@@ -26,11 +25,11 @@ public class NettyModule {
         return new NettyModule(main);
     }
     
-    public static enum EventLoopGroupFactory implements ParameterizedFactory<RuntimeModule, Singleton<? extends EventLoopGroup>> {
+    public static enum EventLoopGroupFactory implements ParameterizedFactory<RuntimeModule, Reference<? extends EventLoopGroup>> {
         INSTANCE;
         
         @Override
-        public Singleton<? extends EventLoopGroup> get(RuntimeModule main) {
+        public Reference<? extends EventLoopGroup> get(RuntimeModule main) {
             ThreadFactory threads = DaemonThreadFactory.getInstance().get(main.threadFactory().get());
             return EventLoopGroupService.factory(
                     NioEventLoopGroupFactory.DEFAULT,
@@ -38,7 +37,7 @@ public class NettyModule {
         }
     }
     
-    protected final Singleton<? extends EventLoopGroup> groupFactory;
+    protected final Reference<? extends EventLoopGroup> groupFactory;
     protected final NettyClientModule nettyClient;
     protected final NettyServerModule nettyServer;    
     
