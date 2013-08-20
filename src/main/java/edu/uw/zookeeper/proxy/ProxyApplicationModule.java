@@ -12,6 +12,7 @@ import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
+import edu.uw.zookeeper.TimeoutFactory;
 import edu.uw.zookeeper.client.ClientApplicationModule;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.FixedClientConnectionFactory;
@@ -102,7 +103,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         NettyModule netModule = NettyModule.newInstance(runtime);
         
         // Client
-        TimeValue timeOut = ClientApplicationModule.TimeoutFactory.newInstance().get(runtime.configuration());
+        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
         ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = ClientApplicationModule.codecFactory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnectionFactory =
                 new ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>() {
@@ -140,7 +141,11 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
         ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 monitorsFactory.apply(serverConnectionFactory.get(address.get()));
-        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(serverConnections, serverExecutor));
+        monitorsFactory.apply(ServerConnectionExecutorsService.newInstance(
+                serverConnections, 
+                timeOut,
+                runtime.executors().asScheduledExecutorServiceFactory().get(),
+                serverExecutor));
 
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
