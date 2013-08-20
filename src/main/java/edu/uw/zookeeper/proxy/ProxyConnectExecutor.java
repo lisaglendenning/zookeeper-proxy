@@ -20,11 +20,13 @@ import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
-public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> {
+public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> {
 
-    public static <V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ProxyConnectExecutor<V,C> newInstance(
+    public static <V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ProxyConnectExecutor<V,C> newInstance(
             Executor executor,
             ConcurrentMap<Long, Publisher> listeners,
             ConcurrentMap<Long, ClientConnectionExecutor<C>> clients,

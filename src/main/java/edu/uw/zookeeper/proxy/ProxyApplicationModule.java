@@ -3,6 +3,7 @@ package edu.uw.zookeeper.proxy;
 import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.google.common.collect.MapMaker;
 
@@ -31,6 +32,7 @@ import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.Operation.Request;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
@@ -51,18 +53,22 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         return INSTANCE;
     }
 
-    public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> implements ParameterizedFactory<V, ServerViewFactory<ConnectMessage.Request, V, C>> {
+    public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<V, ServerViewFactory<ConnectMessage.Request, V, C>> {
 
-        public static <V extends ServerView.Address<? extends SocketAddress>, C extends Connection<? super Message.ClientSession>> ServerViewFactories<V,C> newInstance(
-                ClientConnectionFactory<C> connections) {
-            return new ServerViewFactories<V,C>(connections);
+        public static <V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<V,C> newInstance(
+                ClientConnectionFactory<C> connections,
+                ScheduledExecutorService executor) {
+            return new ServerViewFactories<V,C>(connections, executor);
         }
         
         protected final ClientConnectionFactory<C> connections;
+        protected final ScheduledExecutorService executor;
         
         protected ServerViewFactories(
-                ClientConnectionFactory<C> connections) {
+                ClientConnectionFactory<C> connections,
+                ScheduledExecutorService executor) {
             this.connections = connections;
+            this.executor = executor;
         }
 
         @Override
@@ -70,12 +76,13 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
             return ServerViewFactory.newInstance(
                     view, 
                     ServerViewFactory.FromRequestFactory.create(
-                            FixedClientConnectionFactory.create(view.get(), connections)), 
+                            FixedClientConnectionFactory.create(view.get(), connections),
+                            executor), 
                     ZxidTracker.create());
         }
     }
 
-    public static <C extends Connection<? super Message.ClientSession>> ServerTaskExecutor getServerExecutor(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerTaskExecutor getServerExecutor(
             Executor executor,
             EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<ConnectMessage.Request, ServerInetAddressView, C>> clientFactory) {
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
@@ -111,7 +118,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
                     netModule.clients().getClientConnectionFactory(
                             codecFactory, clientConnectionFactory).get());
         ServerViewFactories<ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> serverFactory = 
-                ServerViewFactories.newInstance(clientConnections);
+                ServerViewFactories.newInstance(clientConnections, runtime.executors().asScheduledExecutorServiceFactory().get());
         EnsembleView<ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
         EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<ConnectMessage.Request, ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
                 EnsembleViewFactory.newInstance(

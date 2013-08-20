@@ -5,15 +5,16 @@ import java.util.Map;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.TaskExecutor;
-import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
+import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
-public class ProxyRequestExecutor<C extends Connection<? super Message.ClientSession>> 
+public class ProxyRequestExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> 
         implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
 
-    public static <C extends Connection<? super Message.ClientSession>> ProxyRequestExecutor<C> newInstance(
+    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ProxyRequestExecutor<C> newInstance(
             Map<Long, ClientConnectionExecutor<C>> clients) {
         return new ProxyRequestExecutor<C>(clients);
     }
