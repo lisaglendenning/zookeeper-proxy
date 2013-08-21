@@ -89,7 +89,7 @@ public enum ProxyApplicationModule implements ParameterizedFactory<RuntimeModule
         ConcurrentMap<Long, Publisher> listeners = new MapMaker().makeMap();
         ConcurrentMap<Long, ClientConnectionExecutor<C>> clients = new MapMaker().makeMap();
         TaskExecutor<FourLetterRequest, FourLetterResponse> anonymousExecutor = 
-                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.getInstance());
+                ServerTaskExecutor.ProcessorExecutor.of(FourLetterRequestProcessor.newInstance());
         ProxyConnectExecutor<ServerInetAddressView, C> connectExecutor = ProxyConnectExecutor.newInstance(executor, listeners, clients, clientFactory);
         ProxyRequestExecutor<C> sessionExecutor = ProxyRequestExecutor.newInstance(clients);
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
