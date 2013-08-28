@@ -1,13 +1,26 @@
 package edu.uw.zookeeper.proxy;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
 import com.google.common.collect.MapMaker;
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 
 import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
@@ -18,16 +31,27 @@ import edu.uw.zookeeper.client.ClientApplicationModule;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.FixedClientConnectionFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
-import edu.uw.zookeeper.client.ClientApplicationModule.ConfigurableEnsembleView;
+import edu.uw.zookeeper.clients.common.RuntimeModuleProvider;
+import edu.uw.zookeeper.clients.trace.JacksonModule;
+import edu.uw.zookeeper.clients.trace.Trace;
+import edu.uw.zookeeper.clients.trace.TraceEvent;
+import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
+import edu.uw.zookeeper.clients.trace.TraceWriter;
+import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Application;
+import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.ServiceApplication;
+import edu.uw.zookeeper.common.ServiceMonitor;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
 import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.NetClientModule;
+import edu.uw.zookeeper.net.NetServerModule;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
@@ -35,7 +59,6 @@ import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.Operation.Request;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
@@ -46,7 +69,6 @@ import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.proxy.netty.NettyModule;
 import edu.uw.zookeeper.server.ServerApplicationModule;
-import edu.uw.zookeeper.server.ServerApplicationModule.ConfigurableServerAddressView;
 
 public class ProxyApplicationModule implements Callable<Application> {
 
@@ -104,70 +126,173 @@ public class ProxyApplicationModule implements Callable<Application> {
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
 
+    public class Module extends AbstractModule {
+
+        @Override
+        protected void configure() {
+            install(JacksonModule.create());
+            bind(new TypeLiteral<Actor<TraceEvent>>() {}).to(TraceWriter.class);
+        }
+
+        @Provides @Singleton
+        public TraceWriter getTraceWriter(
+                Configuration configuration,
+                ObjectMapper mapper,
+                Executor executor) throws IOException {
+            File file = new File(Trace.getTraceOutputFileConfiguration(configuration));
+            logger.info("Trace output: {}", file);
+            return TraceWriter.forFile(
+                    file, 
+                    mapper.writer(), 
+                    executor);
+        }
+
+        @Provides @Singleton
+        public Publisher getTracePublisher(
+                Factory<? extends Publisher> publishers) {
+            return publishers.get();
+        }
+        
+        @Provides @Singleton
+        public TraceEventPublisherService getTraceEventWriterService(
+                Actor<TraceEvent> writer, Publisher publisher) {
+            return TraceEventPublisherService.newInstance(publisher, writer);
+        }
+        
+        @Provides @Singleton
+        public TimeValue getTimeOut(Configuration configuration) {
+            return DefaultMain.ConfigurableTimeout.get(configuration);
+        }
+        
+        @Provides @Singleton
+        public NettyModule getNetModule(RuntimeModule runtime) {
+            return NettyModule.newInstance(runtime);
+        }
+
+        @Provides @Singleton
+        public NetClientModule getNetClientModule(NettyModule net) {
+            return net.clients();
+        }
+
+        @Provides @Singleton
+        public NetServerModule getNetServerModule(NettyModule net) {
+            return net.servers();
+        }
+        
+        @Provides @Singleton
+        public ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getCodecFactory() {
+            return AssignXidCodec.factory();
+        }
+        
+        @Provides @Singleton
+        public ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getProtocolConnectionFactory() {
+            return ProtocolCodecConnection.factory();
+        }
+        
+        @Provides @Singleton
+        public ClientConnectionFactory<ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> getClientConnectionFactory(
+                ServiceMonitor monitor,
+                NetClientModule clientModule,
+                ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory,
+                ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> connectionFactory) {
+            ClientConnectionFactory<ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> connections = clientModule.getClientConnectionFactory(
+                                codecFactory,
+                                connectionFactory).get();
+            monitor.add(connections);
+            return connections;
+        }
+        
+        @Provides @Singleton
+        public EnsembleView<ServerInetAddressView> getEnsembleView(
+                Configuration configuration) {
+            return ClientApplicationModule.ConfigurableEnsembleView.get(configuration);
+        }
+        
+        @Provides @Singleton
+        public ServerTaskExecutor getServerTaskExecutor(
+                Executor executor,
+                ScheduledExecutorService scheduled,
+                EnsembleView<ServerInetAddressView> ensemble,
+                ClientConnectionFactory<ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> connections) {
+            ServerViewFactories<ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> serverFactory = 
+                    ServerViewFactories.newInstance(connections, scheduled);
+            EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<ConnectMessage.Request, ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
+                    EnsembleViewFactory.newInstance(
+                            ensemble,
+                            EnsembleViewFactory.RandomSelector.<ServerInetAddressView>newInstance(),
+                            ServerInetAddressView.class,
+                            serverFactory);
+            return getServerExecutor(
+                    executor,
+                    ensembleFactory);
+        }
+        
+        @Provides @Singleton
+        public ServerInetAddressView getServerAddress(Configuration configuration) {
+            return ServerApplicationModule.ConfigurableServerAddressView.get(configuration);
+        }
+        
+        @Provides @Singleton
+        public ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> getServerConnectionFactory(
+                NetServerModule serverModule,
+                ServerInetAddressView address,
+                ServiceMonitor monitor) {
+            ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
+                    serverModule.getServerConnectionFactory(
+                            ServerApplicationModule.codecFactory(),
+                            ServerApplicationModule.connectionFactory());
+            ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connections = 
+                    serverConnectionFactory.get(address.get());
+            return connections;
+        }
+        
+        @Provides @Singleton
+        public ServerConnectionExecutorsService<?> getServerConnectionExecutorsService(
+                ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connections,
+                TimeValue timeOut,
+                ServerTaskExecutor server,
+                ScheduledExecutorService scheduled,
+                ServiceMonitor monitor) {
+            ServerConnectionExecutorsService<?> instance = ServerConnectionExecutorsService.newInstance(
+                    connections, 
+                    timeOut,
+                    scheduled,
+                    server);
+            monitor.add(instance);
+            return instance;
+        }
+    }
+    
     protected final RuntimeModule runtime;
+    protected final Logger logger = LogManager.getLogger(getClass());
+    protected final Injector injector;
     
     public ProxyApplicationModule(RuntimeModule runtime) {
         this.runtime = runtime;
+        this.injector = createInjector(runtime);
     }
     
     public RuntimeModule getRuntime() {
         return runtime;
     }
 
-    protected TimeValue getTimeOut() {
-        TimeValue value = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
-        return value;
+    public Injector getInjector() {
+        return injector;
+    }
+
+    protected Injector createInjector(RuntimeModule runtime) {
+        return Guice.createInjector(
+                RuntimeModuleProvider.create(runtime), 
+                module());
     }
     
+    protected com.google.inject.Module module() {
+        return new Module();
+    }
+
     @Override
     public Application call() throws Exception {
-        NettyModule netModule = NettyModule.newInstance(runtime);
-        
-        // Client
-        TimeValue timeOut = getTimeOut();
-        ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = AssignXidCodec.factory();
-        ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnectionFactory =
-                new ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>() {
-                    @Override
-                    public ProtocolCodecConnection<Operation.Request, AssignXidCodec, Connection<Request>> get(
-                            Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>> value) {
-                        return ProtocolCodecConnection.newInstance(value.first().second(), value.second());
-                    }
-        };
-        ClientConnectionFactory<ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnections = 
-                netModule.clients().getClientConnectionFactory(
-                            codecFactory, clientConnectionFactory).get();
-        runtime.serviceMonitor().add(clientConnections);
-        ServerViewFactories<ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> serverFactory = 
-                ServerViewFactories.newInstance(clientConnections, runtime.executors().asScheduledExecutorServiceFactory().get());
-        EnsembleView<ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleView.get(runtime.configuration());
-        EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<ConnectMessage.Request, ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
-                EnsembleViewFactory.newInstance(
-                        ensemble,
-                        EnsembleViewFactory.RandomSelector.<ServerInetAddressView>newInstance(),
-                        ServerInetAddressView.class,
-                        serverFactory);
-
-        // Proxy 
-        ServerTaskExecutor serverExecutor = getServerExecutor(
-                runtime.executors().asListeningExecutorServiceFactory().get(),
-                ensembleFactory);
-        
-        // Server
-        ParameterizedFactory<SocketAddress, ? extends ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>>> serverConnectionFactory = 
-                netModule.servers().getServerConnectionFactory(
-                        ServerApplicationModule.codecFactory(),
-                        ServerApplicationModule.connectionFactory());
-        ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressView.get(runtime.configuration());
-        ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
-                serverConnectionFactory.get(address.get());
-        runtime.serviceMonitor().add(serverConnections);
-        runtime.serviceMonitor().add(ServerConnectionExecutorsService.newInstance(
-                serverConnections, 
-                timeOut,
-                runtime.executors().asScheduledExecutorServiceFactory().get(),
-                serverExecutor));
-
+        injector.getInstance(Key.get(new TypeLiteral<ServerConnectionExecutorsService<?>>(){}));
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
 }
