@@ -1,21 +1,24 @@
 package edu.uw.zookeeper.proxy;
 
 import java.net.SocketAddress;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.MapMaker;
 
+import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.RuntimeModule;
 import edu.uw.zookeeper.ServerInetAddressView;
 import edu.uw.zookeeper.ServerView;
-import edu.uw.zookeeper.TimeoutFactory;
 import edu.uw.zookeeper.client.ClientApplicationModule;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.FixedClientConnectionFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
+import edu.uw.zookeeper.client.ClientApplicationModule.ConfigurableEnsembleView;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.ParameterizedFactory;
@@ -43,13 +46,23 @@ import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.proxy.netty.NettyModule;
 import edu.uw.zookeeper.server.ServerApplicationModule;
+import edu.uw.zookeeper.server.ServerApplicationModule.ConfigurableServerAddressView;
 
-public class ProxyApplicationModule implements ParameterizedFactory<RuntimeModule, Application> {
+public class ProxyApplicationModule implements Callable<Application> {
 
-    public static ProxyApplicationModule getInstance() {
-        return new ProxyApplicationModule();
+    public static ParameterizedFactory<RuntimeModule, Application> factory() {
+        return new ParameterizedFactory<RuntimeModule, Application>() {
+            @Override
+            public Application get(RuntimeModule runtime) {
+                try {
+                    return new ProxyApplicationModule(runtime).call();
+                } catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            }  
+        };
     }
-
+    
     public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<V, ServerViewFactory<ConnectMessage.Request, V, C>> {
 
         public static <V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<V,C> newInstance(
@@ -90,14 +103,29 @@ public class ProxyApplicationModule implements ParameterizedFactory<RuntimeModul
         ProxyRequestExecutor<C> sessionExecutor = ProxyRequestExecutor.newInstance(clients);
         return ServerTaskExecutor.newInstance(anonymousExecutor, connectExecutor, sessionExecutor);
     }
+
+    protected final RuntimeModule runtime;
+    
+    public ProxyApplicationModule(RuntimeModule runtime) {
+        this.runtime = runtime;
+    }
+    
+    public RuntimeModule getRuntime() {
+        return runtime;
+    }
+
+    protected TimeValue getTimeOut() {
+        TimeValue value = DefaultMain.ConfigurableTimeout.get(runtime.configuration());
+        return value;
+    }
     
     @Override
-    public Application get(RuntimeModule runtime) {
+    public Application call() throws Exception {
         NettyModule netModule = NettyModule.newInstance(runtime);
         
         // Client
-        TimeValue timeOut = TimeoutFactory.newInstance().get(runtime.configuration());
-        ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = ClientApplicationModule.codecFactory();
+        TimeValue timeOut = getTimeOut();
+        ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> codecFactory = AssignXidCodec.factory();
         ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> clientConnectionFactory =
                 new ParameterizedFactory<Pair<Pair<Class<Operation.Request>, AssignXidCodec>, Connection<Operation.Request>>, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>() {
                     @Override
@@ -112,7 +140,7 @@ public class ProxyApplicationModule implements ParameterizedFactory<RuntimeModul
         runtime.serviceMonitor().add(clientConnections);
         ServerViewFactories<ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>> serverFactory = 
                 ServerViewFactories.newInstance(clientConnections, runtime.executors().asScheduledExecutorServiceFactory().get());
-        EnsembleView<ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleViewFactory.newInstance().get(runtime.configuration());
+        EnsembleView<ServerInetAddressView> ensemble = ClientApplicationModule.ConfigurableEnsembleView.get(runtime.configuration());
         EnsembleViewFactory<ServerInetAddressView, ServerViewFactory<ConnectMessage.Request, ServerInetAddressView, ProtocolCodecConnection<Operation.Request,AssignXidCodec,Connection<Operation.Request>>>> ensembleFactory = 
                 EnsembleViewFactory.newInstance(
                         ensemble,
@@ -130,7 +158,7 @@ public class ProxyApplicationModule implements ParameterizedFactory<RuntimeModul
                 netModule.servers().getServerConnectionFactory(
                         ServerApplicationModule.codecFactory(),
                         ServerApplicationModule.connectionFactory());
-        ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressViewFactory.newInstance().get(runtime.configuration());
+        ServerInetAddressView address = ServerApplicationModule.ConfigurableServerAddressView.get(runtime.configuration());
         ServerConnectionFactory<ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnections = 
                 serverConnectionFactory.get(address.get());
         runtime.serviceMonitor().add(serverConnections);

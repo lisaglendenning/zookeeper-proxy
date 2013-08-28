@@ -12,6 +12,6 @@ public class Main extends DefaultMain {
     }
 
     public Main(Configuration configuration) {
-        super(ProxyApplicationModule.getInstance(), configuration);
+        super(ProxyApplicationModule.factory(), configuration);
     }
 }
