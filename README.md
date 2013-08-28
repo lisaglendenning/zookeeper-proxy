@@ -1,17 +1,15 @@
-Simple ZooKeeper server proxy based on [zookeeper-lite](http://github.com/lisaglendenning/zookeeper-lite).
+ZooKeeper server tracing proxy based on [zookeeper-clients](http://github.com/lisaglendenning/zookeeper-clients).
 
 ## Quickstart
 
 <pre>
-$ mvn exec:java -Dexec.classpathScope=test -Dexec.mainClass="edu.uw.zookeeper.proxy.netty.Main" -Dexec.args="--help"
-Usage: edu.uw.zookeeper.proxy.netty.Main [--ensemble=Ensemble] [--help] [--clientAddress=Address]
+$ mvn exec:java -Dexec.mainClass="edu.uw.zookeeper.proxy.Main" -Dexec.args="--help"
+Usage: edu.uw.zookeeper.proxy.Main [--clientAddress=Address:Port] [--ensemble=Address:Port,...] [--help] [--output=Path] [--timeout=Time] [--trace=BOOLEAN]
 </pre>
 
 ## Building
 
-Both zookeeper-proxy and zookeeper-lite are Maven projects. Build zookeeper-lite first and install it into your local Maven repository.
-
-Both zookeeper-proxy and zookeeper-lite use SLF4J for logging. Apache Log4J2 is used as the SLF4J backend in test scope.
+zookeeper-proxy is a Maven project.
 
 ## Running
 
