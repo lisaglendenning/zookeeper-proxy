@@ -12,6 +12,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.MapMaker;
 import com.google.inject.AbstractModule;
@@ -21,6 +22,7 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
+import com.typesafe.config.ConfigValueType;
 
 import edu.uw.zookeeper.DefaultMain;
 import edu.uw.zookeeper.EnsembleView;
@@ -38,8 +40,10 @@ import edu.uw.zookeeper.clients.trace.Trace;
 import edu.uw.zookeeper.clients.trace.TraceEvent;
 import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
 import edu.uw.zookeeper.clients.trace.TraceWriter;
+import edu.uw.zookeeper.clients.trace.MeasuringClientModule.MeasureLatencyConfiguration;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Application;
+import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.Pair;
@@ -85,7 +89,23 @@ public class ProxyApplicationModule implements Callable<Application> {
             }  
         };
     }
-    
+
+    @Configurable(arg="trace", key="DoTrace", value="true", type=ConfigValueType.BOOLEAN)
+    public static class DoTraceConfiguration implements Function<Configuration, Boolean> {
+
+        public static Boolean get(Configuration configuration) {
+            return new DoTraceConfiguration().apply(configuration);
+        }
+
+        @Override
+        public Boolean apply(Configuration configuration) {
+            Configurable configurable = getClass().getAnnotation(Configurable.class);
+            return configuration.withConfigurable(configurable)
+                        .getConfigOrEmpty(configurable.path())
+                            .getBoolean(configurable.key());
+        }
+    }
+
     public static class ServerViewFactories<V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements ParameterizedFactory<V, ServerViewFactory<ConnectMessage.Request, V, C>> {
 
         public static <V extends ServerView.Address<? extends SocketAddress>, C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ServerViewFactories<V,C> newInstance(
@@ -182,8 +202,14 @@ public class ProxyApplicationModule implements Callable<Application> {
         
         @Provides @Singleton
         public ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getCodecFactory(
-                Publisher publisher) {
-            return ProtocolTracingCodec.factory(publisher);
+                Injector injector,
+                Configuration configuration) {
+            if (DoTraceConfiguration.get(configuration)) {
+                injector.getInstance(ServiceMonitor.class).add(injector.getInstance(TraceEventPublisherService.class));
+                return ProtocolTracingCodec.factory(injector.getInstance(Publisher.class));
+            } else {
+                return AssignXidCodec.factory();
+            }
         }
         
         @Provides @Singleton
@@ -294,7 +320,6 @@ public class ProxyApplicationModule implements Callable<Application> {
 
     @Override
     public Application call() throws Exception {
-        injector.getInstance(ServiceMonitor.class).add(injector.getInstance(TraceEventPublisherService.class));
         injector.getInstance(Key.get(new TypeLiteral<ServerConnectionExecutorsService<?>>(){}));
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
