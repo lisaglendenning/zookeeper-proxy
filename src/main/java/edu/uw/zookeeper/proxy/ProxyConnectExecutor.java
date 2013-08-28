@@ -4,6 +4,9 @@ import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.google.common.base.Function;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -34,6 +37,7 @@ public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketA
         return new ProxyConnectExecutor<V,C>(executor, listeners, clients, clientFactory);
     }
     
+    protected final Logger logger = LogManager.getLogger(getClass());
     protected final EnsembleViewFactory<V, ServerViewFactory<ConnectMessage.Request, V, C>> clientFactory;
     protected final ConcurrentMap<Long, Publisher> listeners;
     protected final ConcurrentMap<Long, ClientConnectionExecutor<C>> clients;
@@ -88,6 +92,7 @@ public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketA
         @Override
         public ConnectMessage.Response apply(
                 ConnectMessage.Response input) {
+            logger.entry(input);
             if (input instanceof ConnectMessage.Response.Valid) {
                 Long sessionId = input.getSessionId();
                 Publisher prevPublisher = listeners.put(sessionId, listener);
@@ -103,7 +108,8 @@ public class ProxyConnectExecutor<V extends ServerView.Address<? extends SocketA
                 
                 new ConnectionListener(sessionId, listener, client);
             }
-            return input;
+            listener.post(input);
+            return logger.exit(input);
         }
     }
     
