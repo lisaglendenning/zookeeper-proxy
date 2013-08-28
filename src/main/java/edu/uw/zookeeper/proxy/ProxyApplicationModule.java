@@ -40,7 +40,6 @@ import edu.uw.zookeeper.clients.trace.Trace;
 import edu.uw.zookeeper.clients.trace.TraceEvent;
 import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
 import edu.uw.zookeeper.clients.trace.TraceWriter;
-import edu.uw.zookeeper.clients.trace.MeasuringClientModule.MeasureLatencyConfiguration;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Configurable;
@@ -90,6 +89,14 @@ public class ProxyApplicationModule implements Callable<Application> {
         };
     }
 
+    @Configurable(arg="ensemble", key="Ensemble", value="localhost:2081", help="Address:Port,...")
+    public static class ConfigurableEnsembleView extends ClientApplicationModule.ConfigurableEnsembleView {
+
+        public static EnsembleView<ServerInetAddressView> get(Configuration configuration) {
+            return new ConfigurableEnsembleView().apply(configuration);
+        }
+    }
+    
     @Configurable(arg="trace", key="DoTrace", value="true", type=ConfigValueType.BOOLEAN)
     public static class DoTraceConfiguration implements Function<Configuration, Boolean> {
 
@@ -233,7 +240,7 @@ public class ProxyApplicationModule implements Callable<Application> {
         @Provides @Singleton
         public EnsembleView<ServerInetAddressView> getEnsembleView(
                 Configuration configuration) {
-            return ClientApplicationModule.ConfigurableEnsembleView.get(configuration);
+            return ConfigurableEnsembleView.get(configuration);
         }
         
         @Provides @Singleton
