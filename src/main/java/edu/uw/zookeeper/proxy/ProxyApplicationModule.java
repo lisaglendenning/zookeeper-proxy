@@ -33,6 +33,7 @@ import edu.uw.zookeeper.client.FixedClientConnectionFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
 import edu.uw.zookeeper.clients.common.RuntimeModuleProvider;
 import edu.uw.zookeeper.clients.trace.JacksonModule;
+import edu.uw.zookeeper.clients.trace.ProtocolTracingCodec;
 import edu.uw.zookeeper.clients.trace.Trace;
 import edu.uw.zookeeper.clients.trace.TraceEvent;
 import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
@@ -180,8 +181,9 @@ public class ProxyApplicationModule implements Callable<Application> {
         }
         
         @Provides @Singleton
-        public ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getCodecFactory() {
-            return AssignXidCodec.factory();
+        public ParameterizedFactory<Publisher, Pair<Class<Operation.Request>, AssignXidCodec>> getCodecFactory(
+                Publisher publisher) {
+            return ProtocolTracingCodec.factory(publisher);
         }
         
         @Provides @Singleton
@@ -292,6 +294,7 @@ public class ProxyApplicationModule implements Callable<Application> {
 
     @Override
     public Application call() throws Exception {
+        injector.getInstance(ServiceMonitor.class).add(injector.getInstance(TraceEventPublisherService.class));
         injector.getInstance(Key.get(new TypeLiteral<ServerConnectionExecutorsService<?>>(){}));
         return ServiceApplication.newInstance(runtime.serviceMonitor());
     }
