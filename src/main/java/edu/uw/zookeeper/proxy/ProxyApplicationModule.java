@@ -39,7 +39,10 @@ import edu.uw.zookeeper.clients.trace.ProtocolTracingCodec;
 import edu.uw.zookeeper.clients.trace.Trace;
 import edu.uw.zookeeper.clients.trace.TraceEvent;
 import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
+import edu.uw.zookeeper.clients.trace.TraceEventTag;
+import edu.uw.zookeeper.clients.trace.TraceHeader;
 import edu.uw.zookeeper.clients.trace.TraceWriter;
+import edu.uw.zookeeper.clients.trace.TraceClientModule.TraceDescriptionConfiguration;
 import edu.uw.zookeeper.common.Actor;
 import edu.uw.zookeeper.common.Application;
 import edu.uw.zookeeper.common.Configurable;
@@ -163,15 +166,26 @@ public class ProxyApplicationModule implements Callable<Application> {
         }
 
         @Provides @Singleton
+        public TraceHeader getTraceHeader(Configuration configuration) {
+            return TraceHeader.create(
+                    TraceDescriptionConfiguration.get(configuration), 
+                    TraceEventTag.TIMESTAMP_EVENT, 
+                    TraceEventTag.PROTOCOL_REQUEST_EVENT, 
+                    TraceEventTag.PROTOCOL_RESPONSE_EVENT);
+        }
+        
+        @Provides @Singleton
         public TraceWriter getTraceWriter(
                 Configuration configuration,
                 ObjectMapper mapper,
+                TraceHeader header,
                 Executor executor) throws IOException {
-            File file = new File(Trace.getTraceOutputFileConfiguration(configuration));
+            File file = Trace.getTraceOutputFileConfiguration(configuration);
             logger.info("Trace output: {}", file);
             return TraceWriter.forFile(
                     file, 
                     mapper.writer(), 
+                    header,
                     executor);
         }
 
