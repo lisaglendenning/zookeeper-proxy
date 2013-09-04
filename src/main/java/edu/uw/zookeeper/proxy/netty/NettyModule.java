@@ -6,11 +6,12 @@ import java.util.concurrent.ThreadFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
-import edu.uw.zookeeper.RuntimeModule;
+import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
+import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
@@ -21,8 +22,8 @@ import edu.uw.zookeeper.netty.server.NettyServerModule;
 
 public class NettyModule {
 
-    public static NettyModule newInstance(RuntimeModule main) {
-        return new NettyModule(main);
+    public static NettyModule newInstance(RuntimeModule runtime) {
+        return new NettyModule(runtime);
     }
     
     public static enum EventLoopGroupFactory implements ParameterizedFactory<RuntimeModule, Reference<? extends EventLoopGroup>> {
@@ -30,10 +31,10 @@ public class NettyModule {
         
         @Override
         public Reference<? extends EventLoopGroup> get(RuntimeModule main) {
-            ThreadFactory threads = DaemonThreadFactory.getInstance().get(main.threadFactory().get());
+            ThreadFactory threads = DaemonThreadFactory.getInstance().get(main.getThreadFactory().get());
             return EventLoopGroupService.factory(
                     NioEventLoopGroupFactory.DEFAULT,
-                    main.serviceMonitor()).get(threads);
+                    main.getServiceMonitor()).get(threads);
         }
     }
     
@@ -42,7 +43,7 @@ public class NettyModule {
     protected final NettyServerModule nettyServer;    
     
     public NettyModule(RuntimeModule runtime) {
-        final Factory<? extends Publisher> publisherFactory = runtime.publisherFactory();
+        Factory<? extends Publisher> publisherFactory = EventBusPublisher.factory();
         
         // shared eventloopgroup
         this.groupFactory = EventLoopGroupFactory.INSTANCE.get(runtime);

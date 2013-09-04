@@ -6,22 +6,20 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.SessionOperation;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 
-public class ProxyRequestExecutor<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> 
+public class ProxyRequestExecutor
         implements TaskExecutor<SessionOperation.Request<?>, Message.ServerResponse<?>> {
 
-    public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> ProxyRequestExecutor<C> newInstance(
-            Map<Long, ClientConnectionExecutor<C>> clients) {
-        return new ProxyRequestExecutor<C>(clients);
+    public static ProxyRequestExecutor newInstance(
+            Map<Long, ClientConnectionExecutor<?>> clients) {
+        return new ProxyRequestExecutor(clients);
     }
     
-    protected final Map<Long, ClientConnectionExecutor<C>> clients;
+    protected final Map<Long, ClientConnectionExecutor<?>> clients;
 
-    public ProxyRequestExecutor(Map<Long, ClientConnectionExecutor<C>> clients) {
+    public ProxyRequestExecutor(Map<Long, ClientConnectionExecutor<?>> clients) {
         this.clients = clients;
     }
     
@@ -29,7 +27,7 @@ public class ProxyRequestExecutor<C extends ProtocolCodecConnection<? super Mess
     public ListenableFuture<Message.ServerResponse<?>> submit(
             SessionOperation.Request<?> request) {
         Long sessionId = request.getSessionId();
-        ClientConnectionExecutor<C> client = clients.get(sessionId);
+        ClientConnectionExecutor<?> client = clients.get(sessionId);
         return client.submit(request);
     }
 }
