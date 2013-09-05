@@ -126,7 +126,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
     }
     
     protected TracingBuilder getDefaultTracingBuilder() {
-        return TracingBuilder.defaults().setRuntimeModule(getRuntimeModule());
+        return TracingBuilder.defaults().setRuntimeModule(getRuntimeModule()).setDefaults();
     }
     
     @Override
