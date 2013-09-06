@@ -1,4 +1,5 @@
-<configuration status="error">
+<?xml version="1.0"?>
+<configuration status="error" dest="err">
   <appenders>
     <Console name="STDOUT" target="SYSTEM_OUT">
       <PatternLayout pattern="%-5r %5p [%t] (%C{1}:%L) - %m%n"/>
@@ -7,7 +8,9 @@
   <loggers>
     <logger name="edu.uw.zookeeper" level="info">
     </logger>
-  	<root level="error">
+    <logger name="io.netty" level="warn">
+    </logger>
+    <root level="error">
       <appender-ref ref="STDOUT"/>
     </root>
   </loggers>

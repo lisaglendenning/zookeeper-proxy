@@ -28,7 +28,7 @@ JAVA = 'java'
 if 'JAVA_HOME' in os.environ:
     JAVA = os.path.join(os.environ['JAVA_HOME'], 'bin', 'java')
 JAVA_CLASSPATH = os.path.join(ZOOKEEPER_PROXY_LIB, "*")
-JAVA_MAIN = "edu.uw.zookeeper.proxy.netty.Main"
+JAVA_MAIN = "edu.uw.zookeeper.proxy.Main"
 JAVA_ARGS = ['-classpath', JAVA_CLASSPATH]
 if len(ZOOKEEPER_PROXY_LOG_CONFIG) > 0:
     JAVA_ARGS.append(ZOOKEEPER_PROXY_LOG_CONFIG)
