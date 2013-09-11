@@ -25,7 +25,6 @@ import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
-import edu.uw.zookeeper.proxy.netty.NettyModule;
 import edu.uw.zookeeper.server.ServerConnectionFactoryBuilder;
 
 public class TracingProxyServerBuilder extends ProxyServerBuilder {

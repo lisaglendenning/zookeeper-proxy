@@ -34,7 +34,6 @@ import edu.uw.zookeeper.protocol.server.FourLetterRequestProcessor;
 import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
-import edu.uw.zookeeper.proxy.netty.NettyModule;
 import edu.uw.zookeeper.server.ServerBuilder;
 import edu.uw.zookeeper.server.ServerConnectionFactoryBuilder;
 

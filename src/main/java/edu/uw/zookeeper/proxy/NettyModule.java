@@ -1,4 +1,4 @@
-package edu.uw.zookeeper.proxy.netty;
+package edu.uw.zookeeper.proxy;
 
 import java.net.SocketAddress;
 import java.util.concurrent.ThreadFactory;
@@ -16,7 +16,7 @@ import edu.uw.zookeeper.netty.DaemonThreadFactory;
 import edu.uw.zookeeper.netty.EventLoopGroupService;
 import edu.uw.zookeeper.netty.client.NettyClientModule;
 import edu.uw.zookeeper.netty.client.NioClientBootstrapFactory;
-import edu.uw.zookeeper.netty.nio.NioEventLoopGroupFactory;
+import edu.uw.zookeeper.netty.NioEventLoopGroupFactory;
 import edu.uw.zookeeper.netty.server.NioServerBootstrapFactory;
 import edu.uw.zookeeper.netty.server.NettyServerModule;
 
