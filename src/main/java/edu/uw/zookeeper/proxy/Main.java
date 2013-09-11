@@ -20,6 +20,8 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
     }
 
     protected static class MainBuilder extends ZooKeeperApplication.ForwardingBuilder<Main, ProxyServerBuilder, MainBuilder> {
+
+        protected static final String DESCRIPTION = "ZooKeeper Tracing Server Proxy";
         
         public MainBuilder() {
             this(ProxyServerBuilder.defaults());
@@ -42,6 +44,7 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
 
         @Override
         protected Main doBuild() {
+            getRuntimeModule().getConfiguration().getArguments().setDescription(DESCRIPTION);
             ServiceMonitor monitor = getRuntimeModule().getServiceMonitor();
             for (Service service: delegate.build()) {
                 monitor.add(service);
