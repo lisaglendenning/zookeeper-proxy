@@ -1,6 +1,7 @@
 package edu.uw.zookeeper.proxy;
 
 import java.util.Map;
+import java.util.concurrent.RejectedExecutionException;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -28,6 +29,9 @@ public class ProxyRequestExecutor
             SessionOperation.Request<?> request) {
         Long sessionId = request.getSessionId();
         ClientConnectionExecutor<?> client = clients.get(sessionId);
+        if (client == null) {
+            throw new RejectedExecutionException(String.valueOf(sessionId));
+        }
         return client.submit(request);
     }
 }
