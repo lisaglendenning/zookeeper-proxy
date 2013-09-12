@@ -9,7 +9,7 @@
 		<groupId>edu.uw.zookeeper</groupId>
 		<artifactId>lite</artifactId>
 		<version>0.5.2-SNAPSHOT</version>
-		<relativePath>../../zookeeper-lite/parent</relativePath>
+		<relativePath>../zookeeper-lite/parent</relativePath>
 	</parent>
 	<build>
 		<plugins>
@@ -21,17 +21,6 @@
 						<id>attach-sources</id>
 						<goals>
 							<goal>jar-no-fork</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-jar-plugin</artifactId>
-				<executions>
-					<execution>
-						<goals>
-							<goal>test-jar</goal>
 						</goals>
 					</execution>
 				</executions>
