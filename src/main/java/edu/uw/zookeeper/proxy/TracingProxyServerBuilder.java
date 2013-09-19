@@ -22,7 +22,7 @@ import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.AssignXidCodec;
-import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
+import edu.uw.zookeeper.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.server.ServerConnectionFactoryBuilder;

@@ -11,7 +11,6 @@ import com.google.common.collect.MapMaker;
 
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.client.ClientBuilder;
 import edu.uw.zookeeper.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.FixedClientConnectionFactory;
@@ -31,20 +30,19 @@ import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.protocol.server.FourLetterRequestProcessor;
-import edu.uw.zookeeper.protocol.server.ServerConnectionExecutorsService;
+import edu.uw.zookeeper.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
-import edu.uw.zookeeper.server.ServerBuilder;
 import edu.uw.zookeeper.server.ServerConnectionFactoryBuilder;
 
-public class ProxyServerBuilder extends ServerBuilder {
+public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder {
 
     public static ProxyServerBuilder defaults() {
         return new ProxyServerBuilder();
     }
     
     @Configurable(arg="ensemble", key="Ensemble", value="localhost:2081", help="Address:Port,...")
-    public static class ConfigurableEnsembleView extends ClientBuilder.ConfigurableEnsembleView {
+    public static class ConfigurableEnsembleView extends edu.uw.zookeeper.client.ConfigurableEnsembleView {
 
         public static EnsembleView<ServerInetAddressView> get(Configuration configuration) {
             return new ConfigurableEnsembleView().apply(configuration);
