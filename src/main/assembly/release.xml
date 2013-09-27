@@ -6,6 +6,13 @@
   </formats>
   <fileSets>
     <fileSet>
+      <directory>${project.build.directory}/lib/compile</directory>
+      <outputDirectory>/lib</outputDirectory>
+      <includes>
+        <include>*.jar</include>
+      </includes>
+    </fileSet>
+    <fileSet>
       <directory>${project.build.directory}</directory>
       <outputDirectory>/lib</outputDirectory>
       <includes>
@@ -17,7 +24,7 @@
       <outputDirectory>/bin</outputDirectory>
     </fileSet>
     <fileSet>
-      <directory>${project.basedir}/src/main/etc</directory>
+      <directory>${project.basedir}/src/main/resources</directory>
       <outputDirectory>/etc</outputDirectory>
     </fileSet>
   </fileSets> 
