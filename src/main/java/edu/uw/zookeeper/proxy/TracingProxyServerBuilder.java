@@ -39,7 +39,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
         return new TracingProxyServerBuilder();
     }
     
-    @Configurable(arg="trace", key="DoTrace", value="true", type=ConfigValueType.BOOLEAN)
+    @Configurable(arg="trace", key="doTrace", value="true", type=ConfigValueType.BOOLEAN)
     public static class DoTraceConfiguration implements Function<Configuration, Boolean> {
     
         public static Boolean get(Configuration configuration) {

@@ -15,16 +15,17 @@
         <main.class>edu.uw.zookeeper.proxy.Main</main.class>
         <main.prefix>ZKPROXY_</main.prefix>
         <main.timestamp>${maven.build.timestamp}</main.timestamp>
+        <zookeeper.lite.source>${project.basedir}/../zookeeper-lite</zookeeper.lite.source>
     </properties>
 	<build>
         <resources>
             <resource>
-                <directory>../zookeeper-lite/zkcore/src/main/resources</directory>
+                <directory>${zookeeper.lite.source}/zkcore/src/main/resources</directory>
             </resource>
         </resources>
         <testResources>
             <testResource>
-                <directory>../zookeeper-lite/zkcore/src/test/resources</directory>
+                <directory>${zookeeper.lite.source}/zkcore/src/test/resources</directory>
             </testResource>
         </testResources>
 		<plugins>
@@ -42,7 +43,7 @@
                             <outputDirectory>${project.build.directory}/bin</outputDirectory>
                             <resources>
                                 <resource>
-                                    <directory>../zookeeper-lite/zkcore/src/main/bin</directory>
+                                    <directory>${zookeeper.lite.source}/zkcore/src/main/bin</directory>
                                     <filtering>true</filtering>
                                 </resource>
                             </resources>

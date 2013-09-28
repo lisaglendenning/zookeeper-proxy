@@ -41,7 +41,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
         return new ProxyServerBuilder();
     }
     
-    @Configurable(arg="ensemble", key="Ensemble", value="localhost:2081", help="Address:Port,...")
+    @Configurable(arg="servers", key="servers", value="127.0.0.1:2081", help="address:port,...")
     public static class ConfigurableEnsembleView extends edu.uw.zookeeper.client.ConfigurableEnsembleView {
 
         public static EnsembleView<ServerInetAddressView> get(Configuration configuration) {
