@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>edu.uw.zookeeper</groupId>
 		<artifactId>lite</artifactId>
-		<version>0.5.5</version>
+		<version>0.5.6-SNAPSHOT</version>
 		<relativePath>../zookeeper-lite/parent</relativePath>
 	</parent>
     <properties>
