@@ -6,36 +6,36 @@
 	<formats>
 		<format>tar.gz</format>
 	</formats>
-    <files>
-        <file>
-            <outputDirectory>/</outputDirectory>
-            <source>${project.basedir}/README.md</source>
-        </file>
-        <file>
-            <outputDirectory>/</outputDirectory>
-            <source>${project.basedir}/LICENSE.txt</source>
-        </file>
-        <file>
-            <outputDirectory>/</outputDirectory>
-            <source>${project.basedir}/NOTICE.txt</source>
-        </file>
-        <file>
-            <outputDirectory>/etc</outputDirectory>
-            <source>${project.build.directory}/classes/log4j2.xml</source>
-        </file>
-        <file>
-            <outputDirectory>/bin</outputDirectory>
-            <source>${project.build.directory}/bin/main.py</source>
-            <fileMode>0755</fileMode>
-        </file>
-    </files>
+	<files>
+		<file>
+			<outputDirectory>/</outputDirectory>
+			<source>${project.basedir}/README.md</source>
+		</file>
+		<file>
+			<outputDirectory>/</outputDirectory>
+			<source>${project.basedir}/LICENSE.txt</source>
+		</file>
+		<file>
+			<outputDirectory>/</outputDirectory>
+			<source>${project.basedir}/NOTICE.txt</source>
+		</file>
+		<file>
+			<outputDirectory>/etc</outputDirectory>
+			<source>${project.build.directory}/classes/log4j2.xml</source>
+		</file>
+		<file>
+			<outputDirectory>/bin</outputDirectory>
+			<source>${project.build.directory}/classes/main.py</source>
+			<fileMode>0755</fileMode>
+		</file>
+	</files>
 	<fileSets>
 		<fileSet>
-            <outputDirectory>/lib</outputDirectory>
+			<outputDirectory>/lib</outputDirectory>
 			<directory>${project.build.directory}/lib/compile</directory>
 		</fileSet>
 		<fileSet>
-            <outputDirectory>/lib</outputDirectory>
+			<outputDirectory>/lib</outputDirectory>
 			<directory>${project.build.directory}</directory>
 			<includes>
 				<include>${project.build.finalName}.jar</include>
