@@ -23,10 +23,8 @@ import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.protocol.server.FourLetterRequestProcessor;
@@ -158,7 +156,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
     protected ClientConnectionFactoryBuilder getDefaultClientConnectionFactoryBuilder() {
         return ClientConnectionFactoryBuilder.defaults()
                 .setClientModule(netModule.clients())
-                .setConnectionFactory(ProtocolCodecConnection.<Operation.Request,AssignXidCodec,Connection<Operation.Request>>factory())
+                .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory())
                 .setRuntimeModule(runtime)
                 .setDefaults();
     }

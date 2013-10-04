@@ -19,9 +19,8 @@ import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message.Server;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.Operation;
+import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.protocol.client.AssignXidCodec;
 import edu.uw.zookeeper.server.ServerConnectionExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
@@ -133,7 +132,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
         return ClientConnectionFactoryBuilder.defaults()
                 .setClientModule(netModule.clients())
                 .setCodecFactory(ProtocolTracingCodec.factory(tracingBuilder.getTracePublisher().getPublisher()))
-                .setConnectionFactory(ProtocolCodecConnection.<Operation.Request,AssignXidCodec,Connection<Operation.Request>>factory())
+                .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory())
                 .setRuntimeModule(runtime)
                 .setDefaults();
     }
