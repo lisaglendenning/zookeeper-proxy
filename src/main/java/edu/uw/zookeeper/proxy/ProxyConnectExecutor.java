@@ -12,38 +12,37 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import edu.uw.zookeeper.client.EnsembleViewFactory;
-import edu.uw.zookeeper.client.ServerViewFactory;
 import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Pair;
 import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.Message;
-import edu.uw.zookeeper.protocol.client.ClientConnectionExecutor;
+import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
 
 public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Request, Publisher>, ConnectMessage.Response> {
 
     public static ProxyConnectExecutor newInstance(
             Executor executor,
             ConcurrentMap<Long, Publisher> listeners,
-            ConcurrentMap<Long, ClientConnectionExecutor<?>> clients,
-            EnsembleViewFactory<ServerViewFactory<ConnectMessage.Request, ?>> clientFactory) {
+            ConcurrentMap<Long, MessageClientExecutor<?>> clients,
+            DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory) {
         return new ProxyConnectExecutor(executor, listeners, clients, clientFactory);
     }
     
     protected final Logger logger = LogManager.getLogger(getClass());
-    protected final EnsembleViewFactory<ServerViewFactory<ConnectMessage.Request, ?>> clientFactory;
+    protected final DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory;
     protected final ConcurrentMap<Long, Publisher> listeners;
-    protected final ConcurrentMap<Long, ClientConnectionExecutor<?>> clients;
+    protected final ConcurrentMap<Long, MessageClientExecutor<?>> clients;
     protected final Executor executor;
     
     public ProxyConnectExecutor(
             Executor executor,
             ConcurrentMap<Long, Publisher> listeners,
-            ConcurrentMap<Long, ClientConnectionExecutor<?>> clients,
-            EnsembleViewFactory<ServerViewFactory<ConnectMessage.Request, ?>> clientFactory) {
+            ConcurrentMap<Long, MessageClientExecutor<?>> clients,
+            DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory) {
         this.executor = executor;
         this.listeners = listeners;
         this.clients = clients;
@@ -53,11 +52,11 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
     @Override
     public ListenableFuture<ConnectMessage.Response> submit(Pair<ConnectMessage.Request, Publisher> request) {
         return Futures.transform(
-                clientFactory.get().get(request.first()),
+                clientFactory.get(request.first()),
                 new ConnectTask(request.second()));
     }
 
-    protected class ConnectTask implements AsyncFunction<ClientConnectionExecutor<?>, ConnectMessage.Response> {
+    protected class ConnectTask implements AsyncFunction<MessageClientExecutor<?>, ConnectMessage.Response> {
         
         protected final Publisher listener;
 
@@ -68,7 +67,7 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
 
         @Override
         public ListenableFuture<ConnectMessage.Response> apply(
-                ClientConnectionExecutor<?> input) throws Exception {
+                MessageClientExecutor<?> input) throws Exception {
             return Futures.transform(input.session(), new ConnectedTask(input, listener));
         }
     }
@@ -76,10 +75,10 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
     protected class ConnectedTask implements Function<ConnectMessage.Response, ConnectMessage.Response> {
 
         protected final Publisher listener;
-        protected final ClientConnectionExecutor<?> client;
+        protected final MessageClientExecutor<?> client;
         
         public ConnectedTask(
-                ClientConnectionExecutor<?> client,
+                MessageClientExecutor<?> client,
                 Publisher listener) {
             this.listener = listener;
             this.client = client;
@@ -96,7 +95,7 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
                     // TODO
                     throw new UnsupportedOperationException();
                 }
-                ClientConnectionExecutor<?> prevClient = clients.put(sessionId, client);
+                MessageClientExecutor<?> prevClient = clients.put(sessionId, client);
                 if (prevClient != null) {
                     // TODO
                     throw new UnsupportedOperationException();
@@ -112,12 +111,12 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
     protected class ConnectionListener {
         protected final Long sessionId;
         protected final Publisher publisher;
-        protected final ClientConnectionExecutor<?> client;
+        protected final MessageClientExecutor<?> client;
         
         public ConnectionListener(
                 Long sessionId, 
                 Publisher publisher, 
-                ClientConnectionExecutor<?> client) {
+                MessageClientExecutor<?> client) {
             this.sessionId = sessionId;
             this.publisher = publisher;
             this.client = client;

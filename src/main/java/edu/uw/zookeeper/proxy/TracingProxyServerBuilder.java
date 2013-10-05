@@ -63,13 +63,13 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
     protected TracingProxyServerBuilder(
             TracingBuilder tracingBuilder,
             NettyModule netModule,
-            ClientConnectionFactoryBuilder clientConnectionBuilder,
+            ClientBuilder clientBuilder,
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> connectionExecutors,
             RuntimeModule runtime) {
-        super(netModule, clientConnectionBuilder, connectionBuilder,
+        super(netModule, clientBuilder, connectionBuilder,
                 serverConnectionFactory, serverTaskExecutor, connectionExecutors,
                 runtime);
         this.tracingBuilder = tracingBuilder;
@@ -81,7 +81,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
 
     public TracingProxyServerBuilder setTracingBuilder(
             TracingBuilder tracingBuilder) {
-        return newInstance(tracingBuilder, netModule, clientConnectionBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
 
     @Override
@@ -95,25 +95,25 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
     @Override
     protected TracingProxyServerBuilder newInstance(
             NettyModule netModule,
-            ClientConnectionFactoryBuilder clientConnectionBuilder,
+            ClientBuilder clientBuilder,
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             RuntimeModule runtime) {
-        return newInstance(tracingBuilder, netModule, clientConnectionBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
     
     protected TracingProxyServerBuilder newInstance(
             TracingBuilder tracingBuilder,
             NettyModule netModule,
-            ClientConnectionFactoryBuilder clientConnectionBuilder,
+            ClientBuilder clientBuilder,
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             RuntimeModule runtime) {
-        return new TracingProxyServerBuilder(tracingBuilder, netModule, clientConnectionBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return new TracingProxyServerBuilder(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
     }
     
     @Override
@@ -126,17 +126,17 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
     protected TracingBuilder getDefaultTracingBuilder() {
         return TracingBuilder.defaults().setRuntimeModule(getRuntimeModule()).setDefaults();
     }
-    
+
     @Override
-    protected ClientConnectionFactoryBuilder getDefaultClientConnectionFactoryBuilder() {
-        return ClientConnectionFactoryBuilder.defaults()
-                .setClientModule(netModule.clients())
-                .setCodecFactory(ProtocolTracingCodec.factory(tracingBuilder.getTracePublisher().getPublisher()))
-                .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory())
-                .setRuntimeModule(runtime)
-                .setDefaults();
+    protected ClientBuilder getDefaultClientBuilder() {
+        return ClientBuilder.defaults().setConnectionBuilder(
+                ClientConnectionFactoryBuilder.defaults()
+                    .setClientModule(netModule.clients())
+                    .setCodecFactory(ProtocolTracingCodec.factory(tracingBuilder.getTracePublisher().getPublisher()))
+                    .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory())
+                    .setRuntimeModule(runtime)).setDefaults();
     }
-    
+
     public static class TracingBuilder extends Tracing.TraceWritingBuilder<TraceEventPublisherService, TracingBuilder> {
 
         public static TracingBuilder defaults() {
