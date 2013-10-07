@@ -302,8 +302,8 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
         return ClientBuilder.defaults().setConnectionBuilder(
                 ClientConnectionFactoryBuilder.defaults()
                     .setClientModule(netModule.clients())
-                    .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory())
-                    .setRuntimeModule(runtime)).setDefaults();
+                    .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory()))
+                .setRuntimeModule(runtime).setDefaults();
     }
 
     @Override
