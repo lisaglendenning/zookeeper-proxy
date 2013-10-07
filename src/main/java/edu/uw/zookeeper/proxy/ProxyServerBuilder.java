@@ -150,7 +150,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
         }
 
         @Override
-        protected ConnectionClientExecutorsService<Message.ClientRequest<?>, ConnectMessage.Request, MessageClientExecutor<?>> getDefaultClientConnectionExecutorsService() {
+        protected ConnectionClientExecutorsService<Message.ClientRequest<?>, ConnectMessage.Request, MessageClientExecutor<?>> getDefaultConnectionClientExecutorsService() {
             EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleView.get(getRuntimeModule().getConfiguration());
             final EnsembleViewFactory<? extends ServerViewFactory<ConnectMessage.Request, ? extends MessageClientExecutor<?>>> ensembleFactory = 
                     EnsembleViewFactory.random(
@@ -310,7 +310,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
     protected ServerTaskExecutor getDefaultServerTaskExecutor() {
         return ProxyServerTaskExecutor.newInstance(
                 getRuntimeModule().getExecutors().get(ExecutorService.class),
-                clientBuilder.getClientConnectionExecutors());
+                clientBuilder.getConnectionClientExecutors());
     }
     
     @Override
