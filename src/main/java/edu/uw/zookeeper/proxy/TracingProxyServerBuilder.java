@@ -15,6 +15,7 @@ import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.RuntimeModule;
+import edu.uw.zookeeper.common.TimeValue;
 import edu.uw.zookeeper.net.Connection;
 import edu.uw.zookeeper.net.ServerConnectionFactory;
 import edu.uw.zookeeper.protocol.Message.Server;
@@ -57,7 +58,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
     protected final TracingBuilder tracingBuilder;
     
     protected TracingProxyServerBuilder() {
-        this(null, null, null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null, null, null);
     }
 
     protected TracingProxyServerBuilder(
@@ -68,10 +69,11 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
             ServerConnectionFactory<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
         super(netModule, clientBuilder, connectionBuilder,
                 serverConnectionFactory, serverTaskExecutor, connectionExecutors,
-                runtime);
+                timeOut, runtime);
         this.tracingBuilder = tracingBuilder;
     }
     
@@ -81,7 +83,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
 
     public TracingProxyServerBuilder setTracingBuilder(
             TracingBuilder tracingBuilder) {
-        return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
 
     @Override
@@ -100,8 +102,9 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
-        return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
     
     protected TracingProxyServerBuilder newInstance(
@@ -112,8 +115,9 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
-        return new TracingProxyServerBuilder(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return new TracingProxyServerBuilder(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
     
     @Override

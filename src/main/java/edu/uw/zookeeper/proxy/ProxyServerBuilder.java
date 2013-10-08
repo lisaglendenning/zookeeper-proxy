@@ -179,7 +179,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
     protected final ClientBuilder clientBuilder;
     
     protected ProxyServerBuilder() {
-        this(null, null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null, null);
     }
 
     protected ProxyServerBuilder(
@@ -189,9 +189,10 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
         super(connectionBuilder, serverConnectionFactory, serverTaskExecutor,
-                connectionExecutors, runtime);
+                connectionExecutors, timeOut, runtime);
         this.netModule = netModule;
         this.clientBuilder = clientBuilder;
     }
@@ -208,6 +209,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
                     serverConnectionFactory, 
                     serverTaskExecutor, 
                     connectionExecutors, 
+                    timeOut,
                     runtime);
         }
     }
@@ -227,6 +229,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
                     serverConnectionFactory, 
                     serverTaskExecutor, 
                     connectionExecutors, 
+                    timeOut,
                     runtime);
         }
     }
@@ -245,7 +248,8 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
                     connectionBuilder, 
                     serverConnectionFactory, 
                     serverTaskExecutor, 
-                    connectionExecutors, 
+                    connectionExecutors,
+                    timeOut,
                     runtime);
         }
     }
@@ -279,8 +283,9 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            TimeValue timeOut,
             RuntimeModule runtime) {
-        return newInstance(netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return newInstance(netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
     
     protected ProxyServerBuilder newInstance(
@@ -290,8 +295,9 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
             ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+                    TimeValue timeOut,
             RuntimeModule runtime) {
-        return new ProxyServerBuilder(netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, runtime);
+        return new ProxyServerBuilder(netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
     }
 
     protected NettyModule getDefaultNetModule() {
@@ -301,6 +307,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
     protected ClientBuilder getDefaultClientBuilder() {
         return ClientBuilder.defaults().setConnectionBuilder(
                 ClientConnectionFactoryBuilder.defaults()
+                    .setTimeOut(getTimeOut())
                     .setClientModule(netModule.clients())
                     .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory()))
                 .setRuntimeModule(runtime).setDefaults();
@@ -316,7 +323,6 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
     @Override
     protected ServerConnectionFactoryBuilder getDefaultServerConnectionFactoryBuilder() {
         return ServerConnectionFactoryBuilder.defaults()
-                .setTimeOut(clientBuilder.getConnectionBuilder().getTimeOut())
                 .setServerModule(netModule.servers())
                 .setRuntimeModule(runtime)
                 .setDefaults();
