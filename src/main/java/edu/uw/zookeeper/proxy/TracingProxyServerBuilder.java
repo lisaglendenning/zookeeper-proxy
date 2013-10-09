@@ -22,7 +22,7 @@ import edu.uw.zookeeper.protocol.Message.Server;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
-import edu.uw.zookeeper.server.ServerConnectionExecutorsService;
+import edu.uw.zookeeper.server.ConnectionServerExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.server.ServerConnectionFactoryBuilder;
@@ -68,7 +68,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Server, ServerProtocolCodec, Connection<Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         super(netModule, clientBuilder, connectionBuilder,
@@ -101,7 +101,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         return newInstance(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
@@ -114,7 +114,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         return new TracingProxyServerBuilder(tracingBuilder, netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);

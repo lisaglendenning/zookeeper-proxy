@@ -32,12 +32,12 @@ import edu.uw.zookeeper.protocol.ProtocolCodec;
 import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
 import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
-import edu.uw.zookeeper.server.ServerConnectionExecutorsService;
+import edu.uw.zookeeper.server.ConnectionServerExecutorsService;
 import edu.uw.zookeeper.protocol.server.ServerProtocolCodec;
 import edu.uw.zookeeper.protocol.server.ServerTaskExecutor;
 import edu.uw.zookeeper.server.ServerConnectionFactoryBuilder;
 
-public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder {
+public class ProxyServerBuilder extends ConnectionServerExecutorsService.Builder {
 
     public static ProxyServerBuilder defaults() {
         return new ProxyServerBuilder();
@@ -188,7 +188,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         super(connectionBuilder, serverConnectionFactory, serverTaskExecutor,
@@ -282,7 +282,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
             TimeValue timeOut,
             RuntimeModule runtime) {
         return newInstance(netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
@@ -294,7 +294,7 @@ public class ProxyServerBuilder extends ServerConnectionExecutorsService.Builder
             ServerConnectionFactoryBuilder connectionBuilder,
             ServerConnectionFactory<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> serverConnectionFactory,
             ServerTaskExecutor serverTaskExecutor,
-            ServerConnectionExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
+            ConnectionServerExecutorsService<? extends ProtocolCodecConnection<Message.Server, ServerProtocolCodec, Connection<Message.Server>>> connectionExecutors,
                     TimeValue timeOut,
             RuntimeModule runtime) {
         return new ProxyServerBuilder(netModule, clientBuilder, connectionBuilder, serverConnectionFactory, serverTaskExecutor, connectionExecutors, timeOut, runtime);
