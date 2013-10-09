@@ -327,4 +327,9 @@ public class ProxyServerBuilder extends ConnectionServerExecutorsService.Builder
                 .setRuntimeModule(runtime)
                 .setDefaults();
     }
+    
+    @Override
+    protected TimeValue getDefaultTimeOut() {
+        return getClientBuilder().getConnectionBuilder().getTimeOut();
+    }
 }
