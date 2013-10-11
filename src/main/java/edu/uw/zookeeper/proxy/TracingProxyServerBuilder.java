@@ -164,7 +164,7 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
 
         @Override
         protected TraceEventPublisherService doBuild() {
-            return tracePublisher;
+            return getTracePublisher();
         }
     }
 }
