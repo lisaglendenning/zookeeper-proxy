@@ -137,8 +137,8 @@ public class TracingProxyServerBuilder extends ProxyServerBuilder {
                 ClientConnectionFactoryBuilder.defaults()
                     .setClientModule(netModule.clients())
                     .setCodecFactory(ProtocolTracingCodec.factory(tracingBuilder.getTracePublisher().getPublisher()))
-                    .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory())
-                    .setRuntimeModule(runtime)).setDefaults();
+                    .setConnectionFactory(ProtocolCodecConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory()))
+                .setRuntimeModule(getRuntimeModule()).setDefaults();
     }
 
     public static class TracingBuilder extends Tracing.TraceWritingBuilder<TraceEventPublisherService, TracingBuilder> {
