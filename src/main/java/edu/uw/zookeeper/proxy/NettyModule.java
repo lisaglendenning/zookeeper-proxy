@@ -3,13 +3,14 @@ package edu.uw.zookeeper.proxy;
 import java.net.SocketAddress;
 import java.util.concurrent.ThreadFactory;
 
+import net.engio.mbassy.PubSubSupport;
+import net.engio.mbassy.bus.SyncBusConfiguration;
+import net.engio.mbassy.bus.SyncMessageBus;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.EventLoopGroup;
-import edu.uw.zookeeper.common.EventBusPublisher;
 import edu.uw.zookeeper.common.Factory;
 import edu.uw.zookeeper.common.ParameterizedFactory;
-import edu.uw.zookeeper.common.Publisher;
 import edu.uw.zookeeper.common.Reference;
 import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.netty.DaemonThreadFactory;
@@ -37,13 +38,23 @@ public class NettyModule {
                     main.getServiceMonitor()).get(threads);
         }
     }
-    
+
+    public static Factory<SyncMessageBus<Object>> syncMessageBus() {
+        return new Factory<SyncMessageBus<Object>>() {
+            @SuppressWarnings("rawtypes")
+            @Override
+            public SyncMessageBus<Object> get() {
+                return new SyncMessageBus<Object>(new SyncBusConfiguration());
+            }
+        };
+    }
+
     protected final Reference<? extends EventLoopGroup> groupFactory;
     protected final NettyClientModule nettyClient;
     protected final NettyServerModule nettyServer;    
     
     public NettyModule(RuntimeModule runtime) {
-        Factory<? extends Publisher> publisherFactory = EventBusPublisher.factory();
+        Factory<? extends PubSubSupport<Object>> publisherFactory = syncMessageBus();
         
         // shared eventloopgroup
         this.groupFactory = EventLoopGroupFactory.INSTANCE.get(runtime);
