@@ -4,59 +4,88 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 import net.engio.mbassy.PubSubSupport;
-import net.engio.mbassy.listener.Handler;
-import net.engio.mbassy.listener.Listener;
-import net.engio.mbassy.listener.References;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import net.engio.mbassy.bus.SyncBusConfiguration;
+import net.engio.mbassy.bus.SyncMessageBus;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
-import edu.uw.zookeeper.common.Automaton;
+import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.DefaultsFactory;
 import edu.uw.zookeeper.common.Pair;
-import edu.uw.zookeeper.common.TaskExecutor;
-import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.protocol.ConnectMessage;
-import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Session;
+import edu.uw.zookeeper.protocol.ZxidReference;
 import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
+import edu.uw.zookeeper.server.AbstractConnectExecutor;
+import edu.uw.zookeeper.server.DefaultSessionParametersPolicy;
+import edu.uw.zookeeper.server.SessionEvent;
+import edu.uw.zookeeper.server.SessionParametersPolicy;
 
-public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Request, PubSubSupport<Object>>, ConnectMessage.Response> {
+public class ProxyConnectExecutor extends AbstractConnectExecutor {
 
-    public static ProxyConnectExecutor newInstance(
-            Executor executor,
-            ConcurrentMap<Long, PubSubSupport<Object>> listeners,
-            ConcurrentMap<Long, MessageClientExecutor<?>> clients,
-            DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory) {
-        return new ProxyConnectExecutor(executor, listeners, clients, clientFactory);
+    public static ProxyConnectExecutor defaults(
+            Configuration configuration,
+            ConcurrentMap<Long, ProxySessionExecutor> sessions,
+            DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory,
+            ParameterizedFactory<Pair<? extends MessageClientExecutor<?>, ? extends PubSubSupport<Object>>, ? extends ProxySessionExecutor> sessionFactory) {
+        DefaultSessionParametersPolicy policy = DefaultSessionParametersPolicy.fromConfiguration(configuration);
+        @SuppressWarnings("rawtypes")
+        PubSubSupport<Object> publisher = new SyncMessageBus<Object>(new SyncBusConfiguration());
+        ZxidReference lastZxid = new ZxidReference() {
+            @Override
+            public long get() {
+                return Long.MAX_VALUE;
+            }
+        };
+        return new ProxyConnectExecutor(
+                publisher, 
+                policy, 
+                lastZxid, 
+                sessions, 
+                clientFactory, 
+                sessionFactory);
     }
     
-    protected final Logger logger = LogManager.getLogger(getClass());
+    protected static final Executor SAME_THREAD_EXECUTOR = MoreExecutors.sameThreadExecutor();
+    
+    protected final ConcurrentMap<Long, ProxySessionExecutor> sessions;
     protected final DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory;
-    protected final ConcurrentMap<Long, PubSubSupport<Object>> listeners;
-    protected final ConcurrentMap<Long, MessageClientExecutor<?>> clients;
-    protected final Executor executor;
+    protected final ParameterizedFactory<Pair<? extends MessageClientExecutor<?>, ? extends PubSubSupport<Object>>, ? extends ProxySessionExecutor> sessionFactory;
     
     public ProxyConnectExecutor(
-            Executor executor,
-            ConcurrentMap<Long, PubSubSupport<Object>> listeners,
-            ConcurrentMap<Long, MessageClientExecutor<?>> clients,
-            DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory) {
-        this.executor = executor;
-        this.listeners = listeners;
-        this.clients = clients;
+            PubSubSupport<? super SessionEvent> publisher,
+            SessionParametersPolicy policy,
+            ZxidReference lastZxid,
+            ConcurrentMap<Long, ProxySessionExecutor> sessions,
+            DefaultsFactory<ConnectMessage.Request, ? extends ListenableFuture<? extends MessageClientExecutor<?>>> clientFactory,
+            ParameterizedFactory<Pair<? extends MessageClientExecutor<?>, ? extends PubSubSupport<Object>>, ? extends ProxySessionExecutor> sessionFactory) {
+        super(publisher, policy, lastZxid);
+        this.sessions = sessions;
         this.clientFactory = clientFactory;
+        this.sessionFactory = sessionFactory;
     }
     
     @Override
-    public ListenableFuture<ConnectMessage.Response> submit(Pair<ConnectMessage.Request, PubSubSupport<Object>> request) {
+    public ListenableFuture<ConnectMessage.Response> submit(Pair<ConnectMessage.Request, ? extends PubSubSupport<Object>> request) {
         return Futures.transform(
                 clientFactory.get(request.first()),
-                new ConnectTask(request.second()));
+                new ConnectTask(request.second()),
+                SAME_THREAD_EXECUTOR);
+    }
+
+    @Override
+    protected Session put(Session session) {
+        return get(session.id());
+    }
+
+    @Override
+    protected ConcurrentMap<Long, ProxySessionExecutor> sessions() {
+        return sessions;
     }
 
     protected class ConnectTask implements AsyncFunction<MessageClientExecutor<?>, ConnectMessage.Response> {
@@ -71,19 +100,22 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
         @Override
         public ListenableFuture<ConnectMessage.Response> apply(
                 MessageClientExecutor<?> input) throws Exception {
-            return Futures.transform(input.session(), new ConnectedTask(input, publisher));
+            return Futures.transform(
+                    input.session(), 
+                    new ConnectedTask(input, publisher),
+                    SAME_THREAD_EXECUTOR);
         }
     }
     
     protected class ConnectedTask implements Function<ConnectMessage.Response, ConnectMessage.Response> {
 
-        protected final PubSubSupport<Object> listener;
+        protected final PubSubSupport<Object> publisher;
         protected final MessageClientExecutor<?> client;
         
         public ConnectedTask(
                 MessageClientExecutor<?> client,
                 PubSubSupport<Object> listener) {
-            this.listener = listener;
+            this.publisher = listener;
             this.client = client;
         }
 
@@ -92,57 +124,14 @@ public class ProxyConnectExecutor implements TaskExecutor<Pair<ConnectMessage.Re
                 ConnectMessage.Response input) {
             logger.entry(input);
             if (input instanceof ConnectMessage.Response.Valid) {
-                Long sessionId = input.getSessionId();
-                PubSubSupport<Object> prevPublisher = listeners.put(sessionId, listener);
-                if (prevPublisher != null) {
+                ProxySessionExecutor session = sessionFactory.get(Pair.create(client, publisher));
+                ProxySessionExecutor prev = sessions.put(input.getSessionId(), session);
+                if (prev != null) {
                     // TODO
                     throw new UnsupportedOperationException();
                 }
-                MessageClientExecutor<?> prevClient = clients.put(sessionId, client);
-                if (prevClient != null) {
-                    // TODO
-                    throw new UnsupportedOperationException();
-                }
-                
-                new ConnectionListener(sessionId, listener, client);
             }
-            listener.publish(input);
             return logger.exit(input);
-        }
-    }
-    
-    @Listener(references = References.Strong)
-    protected class ConnectionListener {
-        protected final Long sessionId;
-        protected final PubSubSupport<Object> publisher;
-        protected final MessageClientExecutor<?> client;
-        
-        public ConnectionListener(
-                Long sessionId, 
-                PubSubSupport<Object> publisher, 
-                MessageClientExecutor<?> client) {
-            this.sessionId = sessionId;
-            this.publisher = publisher;
-            this.client = client;
-            
-            client.subscribe(this);
-        }
-        
-        @Handler
-        public void handleTransition(Automaton.Transition<?> event) {
-            if (Connection.State.CONNECTION_CLOSED == event.to()) {
-                listeners.remove(sessionId, publisher);
-                clients.remove(sessionId, client);
-                
-                try {
-                    client.unsubscribe(this);
-                } catch (IllegalArgumentException e) {}
-            }
-        }
-        
-        @Handler
-        public void handleMessage(Message.ServerResponse<?> message) {
-            publisher.publish(message);
         }
     }
 }

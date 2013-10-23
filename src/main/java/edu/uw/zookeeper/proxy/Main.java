@@ -5,7 +5,6 @@ import com.google.common.util.concurrent.Service;
 
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.common.Application;
-import edu.uw.zookeeper.common.RuntimeModule;
 import edu.uw.zookeeper.common.ServiceApplication;
 import edu.uw.zookeeper.common.ServiceMonitor;
 
@@ -32,11 +31,6 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
             super(delegate);
         }
         
-        @Override
-        public MainBuilder setRuntimeModule(RuntimeModule runtime) {
-            return newInstance(TracingProxyServerBuilder.fromRuntimeModule(runtime));
-        }
-
         @Override
         protected MainBuilder newInstance(ProxyServerBuilder delegate) {
             return new MainBuilder(delegate);
