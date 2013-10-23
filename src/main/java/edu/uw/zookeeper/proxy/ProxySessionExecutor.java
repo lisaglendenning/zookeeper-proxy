@@ -75,7 +75,8 @@ public class ProxySessionExecutor implements SessionExecutor {
 
     @Handler
     public void handleMessage(Message.ServerResponse<?> result) {
-        if (result.xid() == OpCodeXid.NOTIFICATION.xid()) {
+        if ((result.xid() == OpCodeXid.NOTIFICATION.xid()) 
+                || (result.xid() == OpCodeXid.PING.xid())) {
             publish(result);
         }
     }
