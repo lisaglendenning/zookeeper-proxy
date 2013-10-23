@@ -38,7 +38,7 @@ import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.server.FourLetterRequestProcessor;
 import edu.uw.zookeeper.server.SimpleServerExecutor;
 
-public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingBuilder<SimpleServerExecutor, ProxyServerExecutorBuilder.ClientBuilder, ProxyServerExecutorBuilder> {
+public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingBuilder<SimpleServerExecutor<ProxySessionExecutor>, ProxyServerExecutorBuilder.ClientBuilder, ProxyServerExecutorBuilder> {
 
     public static ProxyServerExecutorBuilder defaults() {
         return new ProxyServerExecutorBuilder(null, ClientBuilder.defaults());
@@ -253,14 +253,14 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     }
 
     @Override
-    protected SimpleServerExecutor doBuild() {
+    protected SimpleServerExecutor<ProxySessionExecutor> doBuild() {
         ConcurrentMap<Long, ProxySessionExecutor> sessions = new MapMaker().makeMap();
         ProxyConnectExecutor connectExecutor = ProxyConnectExecutor.defaults(
                 getRuntimeModule().getConfiguration(),
                 sessions,
                 getClientBuilder().getConnectionClientExecutors(),
                 getDefaultSessionFactory());
-        return new SimpleServerExecutor(
+        return new SimpleServerExecutor<ProxySessionExecutor>(
                 sessions,
                 connectExecutor,
                 getDefaultAnonymousExecutor());
