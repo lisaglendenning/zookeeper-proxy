@@ -4,8 +4,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import net.engio.mbassy.PubSubSupport;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -18,20 +16,21 @@ import com.google.common.util.concurrent.MoreExecutors;
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.ServerInetAddressView;
-import edu.uw.zookeeper.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.client.EnsembleViewFactory;
 import edu.uw.zookeeper.client.FixedClientConnectionFactory;
 import edu.uw.zookeeper.client.ServerViewFactory;
 import edu.uw.zookeeper.clients.ConnectionClientExecutorsService;
 import edu.uw.zookeeper.common.*;
 import edu.uw.zookeeper.net.ClientConnectionFactory;
-import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.CodecConnection;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.FourLetterRequest;
 import edu.uw.zookeeper.protocol.FourLetterResponse;
 import edu.uw.zookeeper.protocol.Message;
+import edu.uw.zookeeper.protocol.Operation;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
-import edu.uw.zookeeper.protocol.ProtocolCodecConnection;
+import edu.uw.zookeeper.protocol.ProtocolConnection;
+import edu.uw.zookeeper.protocol.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
@@ -52,21 +51,21 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
         }
     }
 
-    public static class FromRequestFactory<C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<MessageClientExecutor<C>>> {
+    public static class FromRequestFactory<C extends ProtocolConnection<? super Message.ClientSession,? extends Operation.Response,?,?,?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<MessageClientExecutor<C>>> {
     
-        public static <C extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> FromRequestFactory<C> create(
-                Factory<ListenableFuture<C>> connections,
+        public static <C extends ProtocolConnection<? super Message.ClientSession,? extends Operation.Response,?,?,?>> FromRequestFactory<C> create(
+                Factory<? extends ListenableFuture<? extends C>> connections,
                 ScheduledExecutorService executor) {
             return new FromRequestFactory<C>(connections, executor);
         }
 
         protected final static Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
 
-        protected final Factory<ListenableFuture<C>> connections;
+        protected final Factory<? extends ListenableFuture<? extends C>> connections;
         protected final ScheduledExecutorService executor;
         
         public FromRequestFactory(
-                Factory<ListenableFuture<C>> connections,
+                Factory<? extends ListenableFuture<? extends C>> connections,
                 ScheduledExecutorService executor) {
             this.connections = connections;
             this.executor = executor;
@@ -101,16 +100,16 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     public static class ServerViewFactories implements ParameterizedFactory<ServerInetAddressView, ServerViewFactory<ConnectMessage.Request, ? extends MessageClientExecutor<?>>> {
     
         public static ServerViewFactories newInstance(
-                ClientConnectionFactory<? extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> connections,
+                ClientConnectionFactory<? extends ProtocolConnection<? super Message.ClientSession,? extends Operation.Response,?,?,?>> connections,
                 ScheduledExecutorService executor) {
             return new ServerViewFactories(connections, executor);
         }
         
-        protected final ClientConnectionFactory<? extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> connections;
+        protected final ClientConnectionFactory<? extends ProtocolConnection<? super Message.ClientSession,? extends Operation.Response,?,?,?>> connections;
         protected final ScheduledExecutorService executor;
         
         protected ServerViewFactories(
-                ClientConnectionFactory<? extends ProtocolCodecConnection<? super Message.ClientSession, ? extends ProtocolCodec<?,?>, ?>> connections,
+                ClientConnectionFactory<? extends ProtocolConnection<? super Message.ClientSession,? extends Operation.Response,?,?,?>> connections,
                 ScheduledExecutorService executor) {
             this.connections = connections;
             this.executor = executor;
@@ -135,7 +134,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
         
         protected ClientBuilder(
                 ClientConnectionFactoryBuilder connectionBuilder,
-                ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
+                ClientConnectionFactory<? extends ProtocolConnection<Message.ClientSession, Message.ServerSession,?,?,?>> clientConnectionFactory,
                 ConnectionClientExecutorsService<Message.ClientRequest<?>, ConnectMessage.Request, MessageClientExecutor<?>> clientExecutors,
                 RuntimeModule runtime) {
             super(connectionBuilder, clientConnectionFactory, clientExecutors, runtime);
@@ -144,7 +143,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
         @Override
         protected ClientBuilder newInstance(
                 ClientConnectionFactoryBuilder connectionBuilder,
-                ClientConnectionFactory<? extends ProtocolCodecConnection<Message.ClientSession, ? extends ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>> clientConnectionFactory,
+                ClientConnectionFactory<? extends ProtocolConnection<Message.ClientSession, Message.ServerSession,?,?,?>> clientConnectionFactory,
                 ConnectionClientExecutorsService<Message.ClientRequest<?>, ConnectMessage.Request, MessageClientExecutor<?>> clientExecutors,
                 RuntimeModule runtime) {
             return new ClientBuilder(connectionBuilder, clientConnectionFactory, clientExecutors, runtime);
@@ -247,7 +246,13 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
             builder = builder.setConnectionBuilder(
                     ClientConnectionFactoryBuilder.defaults()
                         .setClientModule(getNetModule().clients())
-                        .setConnectionFactory(ClientProtocolConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory()));
+                        .setConnectionFactory(
+                                new ParameterizedFactory<CodecConnection<Message.ClientSession, Message.ServerSession, ProtocolCodec<Message.ClientSession,Message.ServerSession,Message.ClientSession,Message.ServerSession>,?>, ClientProtocolConnection<Message.ClientSession, Message.ServerSession,?,?>>() {
+                                    @Override
+                                    public ClientProtocolConnection<Message.ClientSession, Message.ServerSession,?,?> get(CodecConnection<Message.ClientSession, Message.ServerSession, ProtocolCodec<Message.ClientSession,Message.ServerSession,Message.ClientSession,Message.ServerSession>,?> value) {
+                                        return ClientProtocolConnection.newInstance(value);
+                                    }
+                                }));
         }
         return builder.setDefaults();
     }
@@ -258,18 +263,13 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
         ProxyConnectExecutor connectExecutor = ProxyConnectExecutor.defaults(
                 getRuntimeModule().getConfiguration(),
                 sessions,
-                getClientBuilder().getConnectionClientExecutors(),
-                getDefaultSessionFactory());
+                getClientBuilder().getConnectionClientExecutors());
         return new SimpleServerExecutor<ProxySessionExecutor>(
                 sessions,
                 connectExecutor,
                 getDefaultAnonymousExecutor());
     }
 
-    protected ParameterizedFactory<Pair<? extends MessageClientExecutor<?>, ? extends PubSubSupport<Object>>, ? extends ProxySessionExecutor> getDefaultSessionFactory() {
-        return ProxySessionExecutor.factory();
-    }
-    
     protected TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> getDefaultAnonymousExecutor() {
         return SimpleServerExecutor.ProcessorTaskExecutor.of(FourLetterRequestProcessor.newInstance());
     }

@@ -4,17 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.typesafe.config.ConfigValueType;
 
-import edu.uw.zookeeper.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.clients.trace.ProtocolTracingCodec;
 import edu.uw.zookeeper.clients.trace.TraceWriterBuilder;
 import edu.uw.zookeeper.clients.trace.Tracing;
 import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
+import edu.uw.zookeeper.common.Factory;
+import edu.uw.zookeeper.common.ParameterizedFactory;
 import edu.uw.zookeeper.common.RuntimeModule;
-import edu.uw.zookeeper.net.Connection;
+import edu.uw.zookeeper.net.CodecConnection;
 import edu.uw.zookeeper.protocol.Message;
 import edu.uw.zookeeper.protocol.ProtocolCodec;
+import edu.uw.zookeeper.protocol.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 
 public class TracingProxyServerBuilder extends ProxyServerExecutorBuilder {
@@ -96,9 +98,22 @@ public class TracingProxyServerBuilder extends ProxyServerExecutorBuilder {
         if (builder.getConnectionBuilder() == null) {
             builder = builder.setConnectionBuilder(
                     ClientConnectionFactoryBuilder.defaults()
-                        .setClientModule(netModule.clients())
-                        .setCodecFactory(ProtocolTracingCodec.factory(getTracingBuilder().getTracePublisher().getPublisher()))
-                        .setConnectionFactory(ClientProtocolConnection.<Message.ClientSession, ProtocolCodec<Message.ClientSession, Message.ServerSession>, Connection<Message.ClientSession>>factory()));
+                        .setClientModule(getNetModule().clients())
+                        .setCodecFactory(
+                                new Factory<ProtocolTracingCodec>() {
+                                    @Override
+                                    public ProtocolTracingCodec get() {
+                                        // TODO Auto-generated method stub
+                                        return ProtocolTracingCodec.defaults(getTracingBuilder().getTracePublisher().getPublisher());
+                                    }
+                                })
+                        .setConnectionFactory(
+                                new ParameterizedFactory<CodecConnection<Message.ClientSession, Message.ServerSession, ProtocolCodec<Message.ClientSession,Message.ServerSession,Message.ClientSession,Message.ServerSession>,?>, ClientProtocolConnection<Message.ClientSession, Message.ServerSession,?,?>>() {
+                                    @Override
+                                    public ClientProtocolConnection<Message.ClientSession, Message.ServerSession,?,?> get(CodecConnection<Message.ClientSession, Message.ServerSession, ProtocolCodec<Message.ClientSession,Message.ServerSession,Message.ClientSession,Message.ServerSession>,?> value) {
+                                        return ClientProtocolConnection.newInstance(value);
+                                    }
+                                }));
         }
         return builder.setDefaults();
     }
