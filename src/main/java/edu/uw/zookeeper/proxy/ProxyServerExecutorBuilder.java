@@ -35,6 +35,7 @@ import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
 import edu.uw.zookeeper.server.FourLetterRequestProcessor;
+import edu.uw.zookeeper.server.ProcessorTaskExecutor;
 import edu.uw.zookeeper.server.SimpleServerExecutor;
 
 public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingBuilder<SimpleServerExecutor<ProxySessionExecutor>, ProxyServerExecutorBuilder.ClientBuilder, ProxyServerExecutorBuilder> {
@@ -260,8 +261,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     @Override
     protected SimpleServerExecutor<ProxySessionExecutor> doBuild() {
         ConcurrentMap<Long, ProxySessionExecutor> sessions = new MapMaker().makeMap();
-        ProxyConnectExecutor connectExecutor = ProxyConnectExecutor.defaults(
-                getRuntimeModule().getConfiguration(),
+        ProxyConnectExecutor connectExecutor = ProxyConnectExecutor.create(
                 sessions,
                 getClientBuilder().getConnectionClientExecutors());
         return new SimpleServerExecutor<ProxySessionExecutor>(
@@ -271,6 +271,6 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     }
 
     protected TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> getDefaultAnonymousExecutor() {
-        return SimpleServerExecutor.ProcessorTaskExecutor.of(FourLetterRequestProcessor.newInstance());
+        return ProcessorTaskExecutor.of(FourLetterRequestProcessor.newInstance());
     }
 }
