@@ -1,7 +1,6 @@
 package edu.uw.zookeeper.proxy;
 
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.logging.log4j.LogManager;
@@ -11,8 +10,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -60,8 +57,6 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
             return new FromRequestFactory<C>(connections, executor);
         }
 
-        protected final static Executor sameThreadExecutor = MoreExecutors.sameThreadExecutor();
-
         protected final Factory<? extends ListenableFuture<? extends C>> connections;
         protected final ScheduledExecutorService executor;
         
@@ -79,7 +74,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
         
         @Override
         public ListenableFuture<MessageClientExecutor<C>> get(ConnectMessage.Request request) {
-            return Futures.transform(connections.get(), new Constructor(request), sameThreadExecutor);
+            return Futures.transform(connections.get(), new Constructor(request), SameThreadExecutor.getInstance());
         }
         
         protected class Constructor implements Function<C, MessageClientExecutor<C>> {
