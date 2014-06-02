@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.typesafe.config.ConfigValueType;
 
-import edu.uw.zookeeper.clients.trace.ProtocolTracingCodec;
-import edu.uw.zookeeper.clients.trace.TraceWriterBuilder;
-import edu.uw.zookeeper.clients.trace.Tracing;
-import edu.uw.zookeeper.clients.trace.TraceEventPublisherService;
+import edu.uw.zookeeper.client.trace.ProtocolTracingCodec;
+import edu.uw.zookeeper.client.trace.TraceEventPublisherService;
+import edu.uw.zookeeper.client.trace.TraceWriterBuilder;
+import edu.uw.zookeeper.client.trace.Tracing;
 import edu.uw.zookeeper.common.Configurable;
 import edu.uw.zookeeper.common.Configuration;
 import edu.uw.zookeeper.common.Factory;
