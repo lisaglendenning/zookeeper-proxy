@@ -43,7 +43,7 @@ public class Main extends ZooKeeperApplication.ForwardingApplication {
             for (Service service: delegate.build()) {
                 monitor.add(service);
             }
-            return new Main(ServiceApplication.newInstance(monitor));
+            return new Main(ServiceApplication.forService(monitor));
         }
     }
 }

@@ -7,9 +7,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigUtil;
+
 import edu.uw.zookeeper.EnsembleView;
 import edu.uw.zookeeper.ZooKeeperApplication;
 import edu.uw.zookeeper.ServerInetAddressView;
@@ -42,11 +46,27 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     }
     
     @Configurable(arg="servers", key="servers", value="127.0.0.1:2081", help="address:port,...")
-    public static class ConfigurableEnsembleView extends edu.uw.zookeeper.client.ConfigurableEnsembleView {
+    public static abstract class EnsembleViewConfiguration {
 
         public static EnsembleView<ServerInetAddressView> get(Configuration configuration) {
-            return new ConfigurableEnsembleView().apply(configuration);
+            Configurable configurable = getConfigurable();
+            String value = 
+                    configuration.withConfigurable(configurable)
+                    .getConfigOrEmpty(configurable.path())
+                        .getString(configurable.key());
+            return ServerInetAddressView.ensembleFromString(value);
         }
+
+        public static Configurable getConfigurable() {
+            return EnsembleViewConfiguration.class.getAnnotation(Configurable.class);
+        }
+        
+        public static Configuration set(Configuration configuration, EnsembleView<ServerInetAddressView> value) {
+            Configurable configurable = getConfigurable();
+            return configuration.withConfig(ConfigFactory.parseMap(ImmutableMap.<String,Object>builder().put(ConfigUtil.joinPath(configurable.path(), configurable.key()), EnsembleView.toString(value)).build()));
+        }
+        
+        protected EnsembleViewConfiguration() {}
     }
 
     public static class FromRequestFactory<C extends ProtocolConnection<? super Message.ClientSession,? extends Operation.Response,?,?,?>> implements DefaultsFactory<ConnectMessage.Request, ListenableFuture<MessageClientExecutor<C>>> {
@@ -113,7 +133,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     
         @Override
         public ServerViewFactory<ConnectMessage.Request, ? extends MessageClientExecutor<?>> get(ServerInetAddressView view) {
-            return ServerViewFactory.newInstance(
+            return ServerViewFactory.create(
                     view, 
                     FromRequestFactory.create(
                             FixedClientConnectionFactory.create(view.get(), connections),
@@ -147,7 +167,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
 
         @Override
         protected ConnectionClientExecutorsService<Message.ClientRequest<?>, ConnectMessage.Request, MessageClientExecutor<?>> getDefaultConnectionClientExecutorsService() {
-            EnsembleView<ServerInetAddressView> ensemble = ConfigurableEnsembleView.get(getRuntimeModule().getConfiguration());
+            EnsembleView<ServerInetAddressView> ensemble = EnsembleViewConfiguration.get(getRuntimeModule().getConfiguration());
             final EnsembleViewFactory<? extends ServerViewFactory<ConnectMessage.Request, ? extends MessageClientExecutor<?>>> ensembleFactory = 
                     EnsembleViewFactory.random(
                         ensemble, 
