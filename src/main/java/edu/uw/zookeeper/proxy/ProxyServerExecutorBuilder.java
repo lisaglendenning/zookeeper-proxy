@@ -138,7 +138,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
                     FromRequestFactory.create(
                             FixedClientConnectionFactory.create(view.get(), connections),
                             executor), 
-                    ZxidTracker.create());
+                    ZxidTracker.zero());
         }
     }
 
