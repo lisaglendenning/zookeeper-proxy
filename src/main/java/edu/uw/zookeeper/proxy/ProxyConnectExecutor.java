@@ -10,7 +10,6 @@ import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import edu.uw.zookeeper.common.DefaultsFactory;
-import edu.uw.zookeeper.common.SameThreadExecutor;
 import edu.uw.zookeeper.common.TaskExecutor;
 import edu.uw.zookeeper.protocol.ConnectMessage;
 import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
@@ -47,8 +46,7 @@ public class ProxyConnectExecutor implements TaskExecutor<ConnectMessage.Request
         }
         return Futures.transform(
                 clientFactory.get(request),
-                new ConnectTask(),
-                SameThreadExecutor.getInstance());
+                new ConnectTask());
     }
 
     protected class ConnectTask implements AsyncFunction<MessageClientExecutor<?>, ConnectMessage.Response> {
@@ -62,8 +60,7 @@ public class ProxyConnectExecutor implements TaskExecutor<ConnectMessage.Request
                 MessageClientExecutor<?> input) throws Exception {
             return Futures.transform(
                     input.session(), 
-                    new ConnectedTask(input),
-                    SameThreadExecutor.getInstance());
+                    new ConnectedTask(input));
         }
     }
     

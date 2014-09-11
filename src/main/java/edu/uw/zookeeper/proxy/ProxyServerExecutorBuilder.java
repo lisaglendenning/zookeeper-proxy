@@ -35,7 +35,6 @@ import edu.uw.zookeeper.protocol.client.ClientConnectionFactoryBuilder;
 import edu.uw.zookeeper.protocol.client.ClientProtocolConnection;
 import edu.uw.zookeeper.protocol.client.MessageClientExecutor;
 import edu.uw.zookeeper.protocol.client.ZxidTracker;
-import edu.uw.zookeeper.server.FourLetterRequestProcessor;
 import edu.uw.zookeeper.server.ProcessorTaskExecutor;
 import edu.uw.zookeeper.server.SimpleServerExecutor;
 
@@ -94,7 +93,7 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
         
         @Override
         public ListenableFuture<MessageClientExecutor<C>> get(ConnectMessage.Request request) {
-            return Futures.transform(connections.get(), new Constructor(request), SameThreadExecutor.getInstance());
+            return Futures.transform(connections.get(), new Constructor(request));
         }
         
         protected class Constructor implements Function<C, MessageClientExecutor<C>> {
@@ -286,6 +285,13 @@ public class ProxyServerExecutorBuilder extends ZooKeeperApplication.ForwardingB
     }
 
     protected TaskExecutor<? super FourLetterRequest, ? extends FourLetterResponse> getDefaultAnonymousExecutor() {
-        return ProcessorTaskExecutor.of(FourLetterRequestProcessor.newInstance());
+        return ProcessorTaskExecutor.of(
+                new Processor<FourLetterRequest, FourLetterResponse>() {
+                    @Override
+                    public FourLetterResponse apply(
+                            FourLetterRequest input) {
+                        return FourLetterResponse.fromString(input.first().toString() + "\n");
+                    }
+                });
     }
 }
